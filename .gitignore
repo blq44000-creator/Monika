@@ -1,6 +1,9 @@
 # macOS
 .DS_Store
 
+# Logs
+*.log
+
 # Xcode (le projet est généré par XcodeGen)
 *.xcodeproj
 *.xcworkspace
@@ -13,3 +16,11 @@ build-sim/
 Payload/
 *.ipa
 screenshots/
+
+# Node
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
