@@ -1,26 +1,28 @@
 import SwiftUI
 
-/// En-tête flottant en verre : accès à l'écran distant de Monika, identité centrée et réglages.
+/// En-tête flottant en verre : écran distant de Monika, identité, suivi Conso et réglages.
 struct ChatHeader: View {
     var onOpenScreen: () -> Void = {}
+    var onOpenUsage: () -> Void = {}
     var onSettings: () -> Void = {}
 
     var body: some View {
-        GlassEffectContainer(spacing: 12) {
-            HStack(spacing: 12) {
+        GlassEffectContainer(spacing: 10) {
+            HStack(spacing: 10) {
                 GlassIconButton(
                     systemName: "desktopcomputer",
                     label: "Écran de Monika",
                     action: onOpenScreen
                 )
 
-                Spacer(minLength: 0)
+                Spacer(minLength: 4)
 
                 HStack(spacing: 10) {
                     MonikaAvatar(size: 32)
                     VStack(alignment: .leading, spacing: 0) {
                         Text("Monika")
                             .font(.headline)
+                            .lineLimit(1)
                         HStack(spacing: 4) {
                             Circle()
                                 .fill(.green)
@@ -28,22 +30,31 @@ struct ChatHeader: View {
                             Text("En ligne")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                                .lineLimit(1)
                         }
                     }
                 }
                 .padding(.leading, 6)
-                .padding(.trailing, 16)
+                .padding(.trailing, 14)
                 .padding(.vertical, 6)
                 .glassEffect(.regular, in: .capsule)
                 .accessibilityElement(children: .combine)
 
-                Spacer(minLength: 0)
+                Spacer(minLength: 4)
 
-                GlassIconButton(
-                    systemName: "gearshape",
-                    label: "Ouvrir les réglages",
-                    action: onSettings
-                )
+                HStack(spacing: 8) {
+                    GlassIconButton(
+                        systemName: "chart.bar.xaxis",
+                        label: "Conso",
+                        action: onOpenUsage
+                    )
+
+                    GlassIconButton(
+                        systemName: "gearshape",
+                        label: "Ouvrir les réglages",
+                        action: onSettings
+                    )
+                }
             }
         }
         .padding(.horizontal, 16)

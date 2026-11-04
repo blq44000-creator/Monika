@@ -15,21 +15,23 @@ Monika/
   Models/
     Message.swift              # Modèle SwiftData (texte, rôle, date, pièces jointes)
     Attachment.swift           # Redimensionnement photo (1024 px JPEG 0.7) + extraction PDF/texte
-    AppSettings.swift          # Apparence, endpoints API OpenAI et URL noVNC Tailscale
+    AppSettings.swift          # Apparence, endpoints API OpenAI, noVNC et Conso Tailscale
   Services/
     MonikaAPI.swift            # Client SSE OpenAI multimodal (/v1/chat/completions + retry)
+    UsageAPI.swift             # Client GET /usage via Tailscale (clé API lue depuis le Keychain)
     SpeechRecognizer.swift     # Dictée vocale en direct (SFSpeechRecognizer fr-FR + AVAudioEngine)
   Utilities/
-    KeychainHelper.swift       # Stockage sécurisé (jeton API et mot de passe VNC) dans le Keychain
+    KeychainHelper.swift       # Stockage sécurisé (jeton API, clé Conso, mot de passe VNC) dans le Keychain
     NetworkMonitor.swift       # Surveillance réseau temps réel (NWPathMonitor)
     String+Emoji.swift         # Emojis jamais seuls en début de ligne
   Views/
     ChatView.swift             # Écran de chat, arrière-plan, pièces jointes, dictée
-    ChatHeader.swift           # En-tête flottant en verre (écran VNC, identité Monika, réglages)
+    ChatHeader.swift           # En-tête flottant en verre (écran VNC, identité Monika, Conso, réglages)
     MonikaScreenView.swift     # Vue plein écran noVNC (WKWebView, Tailscale, timeout 10 s)
+    UsageView.swift            # Écran Conso Liquid Glass (jauge budget, OpenRouter, modèles, 10 s)
     MessageBubble.swift        # Bulles en verre teinté (texte, photos, documents) + erreurs
     ComposerBar.swift          # Barre de saisie flottante (+, aperçu, dictée pulsante, envoi/stop)
-    SettingsView.swift         # Écran Réglages Liquid Glass (serveur, écran VNC, apparence, conversation)
+    SettingsView.swift         # Écran Réglages Liquid Glass (serveur, écran VNC, Conso, apparence)
     AnimatedBackground.swift   # Dégradé maillé animé (clair / sombre)
 .github/workflows/build.yml    # CI rapide : Xcode 26 + cache DerivedData → Monika.ipa non signée
 ```
@@ -50,3 +52,4 @@ Aucune compilation locale : tout passe par **GitHub Actions** (`macos-latest`, X
 - [x] Étape 4 — API compatible OpenAI (streaming) + gestion des erreurs
 - [x] Étape 5 — Correctifs saisie/arrière-plan, pièces jointes multimodales, dictée vocale
 - [x] Étape 6 — Écran VNC (noVNC / Tailscale), logo officiel Monika, build CI accéléré
+- [x] Étape 7 — Écran Conso (budget, OpenRouter, Aujourd'hui / Mois par modèle, auto-refresh 10 s)

@@ -48,6 +48,7 @@ struct ChatView: View {
     @State private var errorHapticTrigger = 0
 
     @State private var showSettings = false
+    @State private var showUsage = false
     @State private var showMonikaScreen = false
     @FocusState private var composerFocused: Bool
 
@@ -111,6 +112,7 @@ struct ChatView: View {
                 .safeAreaInset(edge: .top, spacing: 0) {
                     ChatHeader(
                         onOpenScreen: openMonikaScreen,
+                        onOpenUsage: openUsage,
                         onSettings: openSettings
                     )
                 }
@@ -243,6 +245,20 @@ struct ChatView: View {
                 .tint(Theme.accent)
                 .preferredColorScheme((AppAppearance(rawValue: appearanceRaw) ?? .system).colorScheme)
         }
+        .sheet(isPresented: $showUsage) {
+            UsageView(
+                onOpenSettings: {
+                    showUsage = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        showSettings = true
+                    }
+                }
+            )
+            .tint(Theme.accent)
+            .preferredColorScheme((AppAppearance(rawValue: appearanceRaw) ?? .system).colorScheme)
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
         .sheet(isPresented: $showSettings) {
             SettingsView(onClearHistory: clearHistory)
                 .tint(Theme.accent)
@@ -302,6 +318,14 @@ struct ChatView: View {
         }
         composerFocused = false
         showMonikaScreen = true
+    }
+
+    private func openUsage() {
+        if speechRecognizer.isRecording {
+            speechRecognizer.stopRecording()
+        }
+        composerFocused = false
+        showUsage = true
     }
 
     private func openSettings() {

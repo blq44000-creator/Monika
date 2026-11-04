@@ -7,6 +7,8 @@ enum AppSettings {
     static let appearanceKey = "monika.appearance"
     static let vncURLKey = "monika.vncURL"
     static let defaultVNCURL = "http://monika-vps.tail3c6bef.ts.net:6080/"
+    static let usageURLKey = "monika.usageURL"
+    static let defaultUsageURL = "http://100.66.0.111:8787/usage"
 }
 
 /// Mode d'apparence de l'application.

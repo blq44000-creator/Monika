@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-/// Écran Réglages en Liquid Glass : serveur API, écran VNC, apparence, conversation et version.
+/// Écran Réglages en Liquid Glass : serveur API, écran VNC, suivi Conso, apparence, conversation et version.
 struct SettingsView: View {
     var onClearHistory: (() -> Void)? = nil
 
@@ -11,6 +11,7 @@ struct SettingsView: View {
 
     @AppStorage(AppSettings.serverURLKey) private var storedServerURL = ""
     @AppStorage(AppSettings.vncURLKey) private var storedVNCURL = AppSettings.defaultVNCURL
+    @AppStorage(AppSettings.usageURLKey) private var storedUsageURL = AppSettings.defaultUsageURL
     @AppStorage(AppSettings.appearanceKey) private var appearanceRaw = AppAppearance.system.rawValue
 
     @State private var serverURL = ""
@@ -20,6 +21,10 @@ struct SettingsView: View {
     @State private var vncURL = ""
     @State private var vncPassword = ""
     @State private var isVNCPasswordVisible = false
+
+    @State private var usageURL = ""
+    @State private var usageAPIKey = ""
+    @State private var isUsageKeyVisible = false
 
     @State private var isTesting = false
     @State private var connectionResult: ServerConnectionResult?
@@ -53,8 +58,8 @@ struct SettingsView: View {
     }
 
     private var appVersion: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.6.0"
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "6"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.7.0"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "7"
         return "\(version) (\(build))"
     }
 
@@ -66,6 +71,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     serverSection
                     screenSection
+                    usageSection
                     appearanceSection
                     conversationSection
                     aboutSection
@@ -363,6 +369,98 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Section Conso (Tailscale + Keychain)
+
+    private var usageSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionHeader(title: "Conso", systemImage: "chart.bar.xaxis")
+
+            VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("URL Conso (Tailscale)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 10) {
+                        Image(systemName: "network")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Theme.accent)
+                            .frame(width: 22)
+
+                        TextField(AppSettings.defaultUsageURL, text: $usageURL)
+                            .font(.body)
+                            .foregroundStyle(labelColor)
+                            .keyboardType(.URL)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .submitLabel(.done)
+                            .accessibilityLabel("URL du serveur Conso")
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 11)
+
+                Divider()
+                    .overlay(Color.primary.opacity(0.12))
+                    .padding(.leading, 48)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Clé serveur (Keychain)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 10) {
+                        Image(systemName: "key.horizontal.fill")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Theme.accent)
+                            .frame(width: 22)
+
+                        Group {
+                            if isUsageKeyVisible {
+                                TextField("Utilise le jeton Serveur si vide", text: $usageAPIKey)
+                                    .keyboardType(.asciiCapable)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
+                                    .accessibilityLabel("Clé API du serveur Conso")
+                            } else {
+                                SecureField("Utilise le jeton Serveur si vide", text: $usageAPIKey)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
+                                    .accessibilityLabel("Clé API du serveur Conso")
+                            }
+                        }
+                        .font(.body)
+                        .foregroundStyle(labelColor)
+
+                        Button {
+                            withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+                                isUsageKeyVisible.toggle()
+                            }
+                        } label: {
+                            Image(systemName: isUsageKeyVisible ? "eye.slash.fill" : "eye.fill")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 36, height: 36)
+                                .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(isUsageKeyVisible ? "Masquer la clé serveur" : "Afficher la clé serveur")
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 11)
+                .padding(.bottom, 9)
+            }
+            .glassEffect(cardGlass, in: .rect(cornerRadius: 22))
+        }
+        .onChange(of: usageURL) {
+            clearTransientFeedback()
+        }
+        .onChange(of: usageAPIKey) {
+            clearTransientFeedback()
+        }
+    }
+
     // MARK: - Section Apparence
 
     private var appearanceSection: some View {
@@ -499,6 +597,10 @@ struct SettingsView: View {
             ? AppSettings.defaultVNCURL
             : storedVNCURL
         vncPassword = KeychainHelper.read(account: KeychainHelper.vncPasswordAccount) ?? ""
+        usageURL = storedUsageURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? AppSettings.defaultUsageURL
+            : storedUsageURL
+        usageAPIKey = KeychainHelper.read(account: KeychainHelper.usageAPIKeyAccount) ?? ""
     }
 
     private func clearTransientFeedback() {
@@ -557,6 +659,8 @@ struct SettingsView: View {
         let trimmedToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedVNCURL = vncURL.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedVNCPassword = vncPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedUsageURL = usageURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedUsageKey = usageAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
 
         do {
             if trimmedToken.isEmpty {
@@ -571,8 +675,15 @@ struct SettingsView: View {
                 try KeychainHelper.save(trimmedVNCPassword, account: KeychainHelper.vncPasswordAccount)
             }
 
+            if trimmedUsageKey.isEmpty {
+                KeychainHelper.delete(account: KeychainHelper.usageAPIKeyAccount)
+            } else {
+                try KeychainHelper.save(trimmedUsageKey, account: KeychainHelper.usageAPIKeyAccount)
+            }
+
             storedServerURL = trimmedServerURL
             storedVNCURL = trimmedVNCURL.isEmpty ? AppSettings.defaultVNCURL : trimmedVNCURL
+            storedUsageURL = trimmedUsageURL.isEmpty ? AppSettings.defaultUsageURL : trimmedUsageURL
             saveError = nil
             successFeedback += 1
             MonikaAPI.resetSession(cancelActiveTasks: false)

@@ -18,6 +18,7 @@ enum KeychainHelper {
     static let service = "com.blq.monika"
     static let apiTokenAccount = "apiToken"
     static let vncPasswordAccount = "vncPassword"
+    static let usageAPIKeyAccount = "usageAPIKey"
 
     static func save(_ value: String, account: String = apiTokenAccount) throws {
         let data = Data(value.utf8)
