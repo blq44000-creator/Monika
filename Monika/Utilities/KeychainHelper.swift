@@ -16,9 +16,10 @@ enum KeychainError: LocalizedError {
 /// Le jeton n'est jamais écrit dans UserDefaults ni dans les journaux.
 enum KeychainHelper {
     static let service = "com.blq.monika"
-    private static let defaultAccount = "apiToken"
+    static let apiTokenAccount = "apiToken"
+    static let vncPasswordAccount = "vncPassword"
 
-    static func save(_ value: String, account: String = defaultAccount) throws {
+    static func save(_ value: String, account: String = apiTokenAccount) throws {
         let data = Data(value.utf8)
         let baseQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -43,7 +44,7 @@ enum KeychainHelper {
         }
     }
 
-    static func read(account: String = defaultAccount) -> String? {
+    static func read(account: String = apiTokenAccount) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -61,7 +62,7 @@ enum KeychainHelper {
     }
 
     @discardableResult
-    static func delete(account: String = defaultAccount) -> Bool {
+    static func delete(account: String = apiTokenAccount) -> Bool {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,

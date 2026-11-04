@@ -8,9 +8,6 @@ struct MonikaApp: App {
 
     init() {
         NetworkMonitor.shared.start()
-        if DemoMode.isEnabled {
-            DemoMode.configureSettings()
-        }
         container = Self.makeContainer()
     }
 
@@ -29,14 +26,8 @@ struct MonikaApp: App {
 
     @MainActor
     private static func makeContainer() -> ModelContainer {
-        let demo = DemoMode.isEnabled
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: demo)
         do {
-            let container = try ModelContainer(for: Message.self, configurations: configuration)
-            if demo {
-                DemoMode.seed(container.mainContext)
-            }
-            return container
+            return try ModelContainer(for: Message.self)
         } catch {
             fatalError("Impossible d'ouvrir la base SwiftData : \(error)")
         }

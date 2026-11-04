@@ -5,6 +5,8 @@ import SwiftUI
 enum AppSettings {
     static let serverURLKey = "monika.serverURL"
     static let appearanceKey = "monika.appearance"
+    static let vncURLKey = "monika.vncURL"
+    static let defaultVNCURL = "http://monika-vps.tail3c6bef.ts.net:6080/"
 }
 
 /// Mode d'apparence de l'application.
@@ -193,5 +195,48 @@ enum ServerEndpoint {
         } catch {
             return .failed("Impossible de joindre le serveur.")
         }
+    }
+}
+
+/// Construction sécurisée de l'URL noVNC pour l'écran distant de Monika (Tailscale).
+/// Le mot de passe VNC n'est jamais journalisé.
+enum VNCEndpoint {
+    static func targetURL(rawURL: String, password: String?) -> URL? {
+        var candidate = rawURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if candidate.isEmpty {
+            candidate = AppSettings.defaultVNCURL
+        }
+        if !candidate.lowercased().hasPrefix("http://") && !candidate.lowercased().hasPrefix("https://") {
+            candidate = "http://" + candidate
+        }
+
+        guard var components = URLComponents(string: candidate),
+              let scheme = components.scheme?.lowercased(),
+              (scheme == "http" || scheme == "https"),
+              let host = components.host,
+              !host.isEmpty
+        else {
+            return nil
+        }
+
+        let trimmedPassword = (password ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedPassword.isEmpty {
+            if !components.path.lowercased().hasSuffix(".html") {
+                var basePath = components.path
+                while basePath.hasSuffix("/") {
+                    basePath.removeLast()
+                }
+                components.path = basePath + "/vnc.html"
+            }
+
+            var allowed = CharacterSet.alphanumerics
+            allowed.insert(charactersIn: "-._~")
+            let encodedPassword = trimmedPassword.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
+            components.percentEncodedQuery = "autoconnect=true&resize=scale&reconnect=true&password=\(encodedPassword)"
+        } else if components.path.isEmpty {
+            components.path = "/"
+        }
+
+        return components.url
     }
 }

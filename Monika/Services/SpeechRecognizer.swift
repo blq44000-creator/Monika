@@ -17,12 +17,6 @@ final class SpeechRecognizer {
     private var recognitionTask: SFSpeechRecognitionTask?
     private var activeSessionID: UUID?
 
-    init(startInDemoState: Bool = false) {
-        if startInDemoState {
-            isRecording = true
-        }
-    }
-
     func toggleRecording(
         currentText: String,
         onTranscript: @escaping @MainActor (String) -> Void
@@ -40,17 +34,6 @@ final class SpeechRecognizer {
     ) async {
         permissionDeniedMessage = nil
         errorMessage = nil
-
-        // En DemoMode (captures CI sur simulateur sans micro matériel), simulation propre
-        if DemoMode.isEnabled {
-            isRecording = true
-            let prefix = currentText.trimmingCharacters(in: .whitespacesAndNewlines)
-            let combined = prefix.isEmpty
-                ? DemoMode.sampleDictatedText
-                : "\(prefix) \(DemoMode.sampleDictatedText)"
-            onTranscript(combined)
-            return
-        }
 
         let speechStatus = await Self.requestSpeechAuthorization()
         guard speechStatus == .authorized else {
@@ -148,7 +131,7 @@ final class SpeechRecognizer {
         recognitionTask?.cancel()
         recognitionTask = nil
 
-        if wasRecording && !DemoMode.isEnabled {
+        if wasRecording {
             cleanupAudioSession()
         }
     }

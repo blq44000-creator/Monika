@@ -1,15 +1,18 @@
 import SwiftUI
 
-/// En-tête flottant en verre : identité de Monika centrée et accès aux réglages.
+/// En-tête flottant en verre : accès à l'écran distant de Monika, identité centrée et réglages.
 struct ChatHeader: View {
+    var onOpenScreen: () -> Void = {}
     var onSettings: () -> Void = {}
 
     var body: some View {
         GlassEffectContainer(spacing: 12) {
             HStack(spacing: 12) {
-                Color.clear
-                    .frame(width: 44, height: 44)
-                    .accessibilityHidden(true)
+                GlassIconButton(
+                    systemName: "desktopcomputer",
+                    label: "Écran de Monika",
+                    action: onOpenScreen
+                )
 
                 Spacer(minLength: 0)
 
@@ -36,8 +39,11 @@ struct ChatHeader: View {
 
                 Spacer(minLength: 0)
 
-                GlassIconButton(systemName: "gearshape", label: "Ouvrir les réglages", action: onSettings)
-                    .accessibilityIdentifier("headerSettingsButton")
+                GlassIconButton(
+                    systemName: "gearshape",
+                    label: "Ouvrir les réglages",
+                    action: onSettings
+                )
             }
         }
         .padding(.horizontal, 16)
@@ -66,26 +72,33 @@ struct GlassIconButton: View {
     }
 }
 
-/// Avatar de Monika : pastille en dégradé + SF Symbol.
+/// Avatar officiel de Monika : logo détouré en rond avec léger reflet glass et ombre douce.
 struct MonikaAvatar: View {
     var size: CGFloat = 32
 
     var body: some View {
-        Circle()
-            .fill(
-                LinearGradient(
-                    colors: [.pink, .purple, .indigo],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
+        Image("MonikaAvatar")
+            .resizable()
+            .interpolation(.high)
+            .antialiased(true)
+            .scaledToFill()
             .frame(width: size, height: size)
+            .clipShape(.circle)
             .overlay {
-                Image(systemName: "sparkles")
-                    .font(.system(size: size * 0.48, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .symbolRenderingMode(.hierarchical)
+                Circle()
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.68),
+                                Color.white.opacity(0.18),
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.9
+                    )
             }
+            .shadow(color: Color.purple.opacity(0.28), radius: max(2, size * 0.14), x: 0, y: 2)
             .accessibilityHidden(true)
     }
 }

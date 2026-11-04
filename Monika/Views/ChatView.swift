@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 import UIKit
 
 /// Écran principal du chat. L'historique est lu et sauvegardé avec SwiftData,
-/// et les réponses de Monika arrivent en streaming SSE (ou en mode factice sous DemoMode).
+/// et les réponses de Monika arrivent en streaming SSE.
 struct ChatView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
@@ -41,29 +41,17 @@ struct ChatView: View {
     @State private var infoAlertMessage: String?
 
     // Dictée vocale interne (Speech + AVAudioEngine)
-    @State private var speechRecognizer: SpeechRecognizer
+    @State private var speechRecognizer = SpeechRecognizer()
 
     @State private var sendHapticTrigger = 0
     @State private var replyHapticTrigger = 0
     @State private var errorHapticTrigger = 0
 
     @State private var showSettings = false
+    @State private var showMonikaScreen = false
     @FocusState private var composerFocused: Bool
 
     private let spring = Animation.spring(response: 0.42, dampingFraction: 0.8)
-
-    init() {
-        let demoDictation = DemoMode.showsDictationState
-        _speechRecognizer = State(initialValue: SpeechRecognizer(startInDemoState: demoDictation))
-
-        if DemoMode.showsTypingState {
-            _isGenerating = State(initialValue: true)
-        } else if DemoMode.showsNetworkError {
-            _chatError = State(initialValue: .unreachable)
-        } else if demoDictation {
-            _draft = State(initialValue: DemoMode.sampleDictatedText)
-        }
-    }
 
     var body: some View {
         ZStack {
@@ -121,7 +109,10 @@ struct ChatView: View {
                 .scrollDismissesKeyboard(.interactively)
                 .scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
                 .safeAreaInset(edge: .top, spacing: 0) {
-                    ChatHeader(onSettings: openSettings)
+                    ChatHeader(
+                        onOpenScreen: openMonikaScreen,
+                        onSettings: openSettings
+                    )
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     ComposerBar(
@@ -140,7 +131,6 @@ struct ChatView: View {
                     .onSubmit(send)
                 }
                 .onAppear {
-                    applyInitialDemoStateIfNeeded()
                     scrollToBottom(proxy, animated: false)
                 }
                 .task {
@@ -248,6 +238,11 @@ struct ChatView: View {
         } message: {
             Text(infoAlertMessage ?? "")
         }
+        .fullScreenCover(isPresented: $showMonikaScreen) {
+            MonikaScreenView()
+                .tint(Theme.accent)
+                .preferredColorScheme((AppAppearance(rawValue: appearanceRaw) ?? .system).colorScheme)
+        }
         .sheet(isPresented: $showSettings) {
             SettingsView(onClearHistory: clearHistory)
                 .tint(Theme.accent)
@@ -294,17 +289,6 @@ struct ChatView: View {
         }
     }
 
-    private func applyInitialDemoStateIfNeeded() {
-        guard DemoMode.isEnabled else { return }
-        if DemoMode.showsTypingState {
-            isGenerating = true
-        } else if DemoMode.showsNetworkError {
-            chatError = .unreachable
-        } else if DemoMode.showsDictationState && draft.isEmpty {
-            draft = DemoMode.sampleDictatedText
-        }
-    }
-
     private func insertWelcomeIfNeeded() {
         let count = (try? modelContext.fetchCount(FetchDescriptor<Message>())) ?? 0
         guard count == 0 else { return }
@@ -312,10 +296,19 @@ struct ChatView: View {
         try? modelContext.save()
     }
 
+    private func openMonikaScreen() {
+        if speechRecognizer.isRecording {
+            speechRecognizer.stopRecording()
+        }
+        composerFocused = false
+        showMonikaScreen = true
+    }
+
     private func openSettings() {
         if speechRecognizer.isRecording {
             speechRecognizer.stopRecording()
         }
+        composerFocused = false
         showSettings = true
     }
 
@@ -415,8 +408,7 @@ struct ChatView: View {
             }
         }
 
-        let fallbackPrompt = trimmedPrompt.isEmpty ? (attachment?.fileName ?? "Pièce jointe") : trimmedPrompt
-        startAssistantGeneration(fallbackPrompt: fallbackPrompt)
+        startAssistantGeneration()
     }
 
     private func buildUserMessage(prompt: String, attachment: PendingAttachment?) -> Message {
@@ -445,11 +437,10 @@ struct ChatView: View {
 
     private func retryLastMessage() {
         guard !isGenerating else { return }
-        let lastPrompt = messages.last(where: { $0.isFromUser })?.text ?? ""
         withAnimation(spring) {
             chatError = nil
         }
-        startAssistantGeneration(fallbackPrompt: lastPrompt)
+        startAssistantGeneration()
     }
 
     private func stopGeneration() {
@@ -474,7 +465,7 @@ struct ChatView: View {
         }
     }
 
-    private func startAssistantGeneration(fallbackPrompt: String) {
+    private func startAssistantGeneration() {
         generationTask?.cancel()
         let generationID = UUID()
         activeGenerationID = generationID
@@ -489,15 +480,11 @@ struct ChatView: View {
         }
 
         generationTask = Task {
-            if DemoMode.isEnabled {
-                await runDemoGeneration(prompt: fallbackPrompt, generationID: generationID)
-            } else {
-                await runLiveGeneration(
-                    serverURL: serverURLSnapshot,
-                    messages: contextPayload,
-                    generationID: generationID
-                )
-            }
+            await runLiveGeneration(
+                serverURL: serverURLSnapshot,
+                messages: contextPayload,
+                generationID: generationID
+            )
         }
     }
 
@@ -624,59 +611,22 @@ struct ChatView: View {
         }
     }
 
-    private func runDemoGeneration(prompt: String, generationID: UUID) async {
-        do {
-            try await Task.sleep(for: .milliseconds(700))
-            guard activeGenerationID == generationID, !Task.isCancelled else { return }
-
-            let fullReply = Message.mockReply(for: prompt)
-            let words = fullReply.split(separator: " ", omittingEmptySubsequences: false)
-            var built = ""
-
-            for (index, word) in words.enumerated() {
-                try Task.checkCancellation()
-                guard activeGenerationID == generationID else { return }
-                built += (index == 0 ? "" : " ") + String(word)
-                streamingText = built
-                try await Task.sleep(for: .milliseconds(45))
-            }
-
-            guard activeGenerationID == generationID, !Task.isCancelled else { return }
-            withAnimation(spring) {
-                modelContext.insert(Message(text: fullReply, role: .assistant))
-                streamingText = ""
-                isGenerating = false
-                activeGenerationID = nil
-            }
-            try? modelContext.save()
-            replyHapticTrigger += 1
-        } catch {
-            guard activeGenerationID == generationID else { return }
-            withAnimation(spring) {
-                streamingText = ""
-                isGenerating = false
-                activeGenerationID = nil
-            }
-        }
-    }
-
     // MARK: - Cycle arrière-plan / premier plan
 
     private func handleScenePhaseChange(_ newPhase: ScenePhase) {
         switch newPhase {
         case .background:
-            if speechRecognizer.isRecording && !DemoMode.isEnabled {
+            if speechRecognizer.isRecording {
                 speechRecognizer.stopRecording()
             }
-            if isGenerating && !DemoMode.isEnabled {
+            if isGenerating {
                 beginStreamingBackgroundTaskIfNeeded()
             }
 
         case .active:
             endStreamingBackgroundTask()
-            if !DemoMode.isEnabled {
-                MonikaAPI.resetSession(cancelActiveTasks: !isGenerating)
-            }
+            MonikaAPI.resetSession(cancelActiveTasks: !isGenerating)
+
             if needsResumeOnActive && !isGenerating {
                 needsResumeOnActive = false
                 if let savedPartial = interruptedPartialMessage {
@@ -684,8 +634,7 @@ struct ChatView: View {
                     try? modelContext.save()
                     interruptedPartialMessage = nil
                 }
-                let lastPrompt = messages.last(where: { $0.isFromUser })?.text ?? ""
-                startAssistantGeneration(fallbackPrompt: lastPrompt)
+                startAssistantGeneration()
             }
 
         case .inactive:

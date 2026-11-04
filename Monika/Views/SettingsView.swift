@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-/// Écran Réglages en Liquid Glass : serveur, jeton Keychain, apparence, conversation et version.
+/// Écran Réglages en Liquid Glass : serveur API, écran VNC, apparence, conversation et version.
 struct SettingsView: View {
     var onClearHistory: (() -> Void)? = nil
 
@@ -10,11 +10,17 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
 
     @AppStorage(AppSettings.serverURLKey) private var storedServerURL = ""
+    @AppStorage(AppSettings.vncURLKey) private var storedVNCURL = AppSettings.defaultVNCURL
     @AppStorage(AppSettings.appearanceKey) private var appearanceRaw = AppAppearance.system.rawValue
 
     @State private var serverURL = ""
     @State private var token = ""
     @State private var isTokenVisible = false
+
+    @State private var vncURL = ""
+    @State private var vncPassword = ""
+    @State private var isVNCPasswordVisible = false
+
     @State private var isTesting = false
     @State private var connectionResult: ServerConnectionResult?
     @State private var saveError: String?
@@ -47,8 +53,8 @@ struct SettingsView: View {
     }
 
     private var appVersion: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.5.0"
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "5"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.6.0"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "6"
         return "\(version) (\(build))"
     }
 
@@ -57,14 +63,15 @@ struct SettingsView: View {
             AnimatedBackground()
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 20) {
                     serverSection
+                    screenSection
                     appearanceSection
                     conversationSection
                     aboutSection
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+                .padding(.vertical, 12)
             }
             .scrollDismissesKeyboard(.interactively)
             .scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
@@ -100,7 +107,6 @@ struct SettingsView: View {
                 GlassIconButton(systemName: "xmark", label: "Fermer") {
                     dismiss()
                 }
-                .accessibilityIdentifier("closeSettingsButton")
 
                 Spacer(minLength: 0)
 
@@ -155,7 +161,6 @@ struct SettingsView: View {
                             .autocorrectionDisabled()
                             .submitLabel(.done)
                             .accessibilityLabel("URL du serveur")
-                            .accessibilityIdentifier("serverURLField")
                     }
                 }
                 .padding(.horizontal, 16)
@@ -183,13 +188,11 @@ struct SettingsView: View {
                                     .textInputAutocapitalization(.never)
                                     .autocorrectionDisabled()
                                     .accessibilityLabel("Jeton d'accès")
-                                    .accessibilityIdentifier("tokenField")
                             } else {
                                 SecureField("sk-…", text: $token)
                                     .textInputAutocapitalization(.never)
                                     .autocorrectionDisabled()
                                     .accessibilityLabel("Jeton d'accès")
-                                    .accessibilityIdentifier("tokenField")
                             }
                         }
                         .font(.body)
@@ -208,7 +211,6 @@ struct SettingsView: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(isTokenVisible ? "Masquer le jeton" : "Afficher le jeton")
-                        .accessibilityIdentifier("toggleTokenVisibilityButton")
                     }
                 }
                 .padding(.horizontal, 16)
@@ -238,7 +240,6 @@ struct SettingsView: View {
             .buttonStyle(.plain)
             .disabled(isTesting)
             .glassEffect(cardGlass.interactive(), in: .capsule)
-            .accessibilityIdentifier("testConnectionButton")
 
             if let result = connectionResult {
                 Text(result.displayText.keepingEmojisAttached)
@@ -249,7 +250,6 @@ struct SettingsView: View {
                     .padding(.vertical, 10)
                     .glassEffect(statusGlass(isSuccess: result.isSuccess), in: .rect(cornerRadius: 16))
                     .transition(.scale(scale: 0.92).combined(with: .opacity))
-                    .accessibilityIdentifier("connectionStatusBanner")
             }
 
             if let saveError {
@@ -267,6 +267,98 @@ struct SettingsView: View {
             clearTransientFeedback()
         }
         .onChange(of: token) {
+            clearTransientFeedback()
+        }
+    }
+
+    // MARK: - Section Écran (noVNC / Tailscale)
+
+    private var screenSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionHeader(title: "Écran", systemImage: "desktopcomputer")
+
+            VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("URL noVNC (Tailscale)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 10) {
+                        Image(systemName: "display")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Theme.accent)
+                            .frame(width: 22)
+
+                        TextField(AppSettings.defaultVNCURL, text: $vncURL)
+                            .font(.body)
+                            .foregroundStyle(labelColor)
+                            .keyboardType(.URL)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .submitLabel(.done)
+                            .accessibilityLabel("URL de l'écran noVNC")
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 11)
+
+                Divider()
+                    .overlay(Color.primary.opacity(0.12))
+                    .padding(.leading, 48)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Mot de passe VNC")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 10) {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Theme.accent)
+                            .frame(width: 22)
+
+                        Group {
+                            if isVNCPasswordVisible {
+                                TextField("Optionnel", text: $vncPassword)
+                                    .keyboardType(.asciiCapable)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
+                                    .accessibilityLabel("Mot de passe VNC")
+                            } else {
+                                SecureField("Optionnel", text: $vncPassword)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
+                                    .accessibilityLabel("Mot de passe VNC")
+                            }
+                        }
+                        .font(.body)
+                        .foregroundStyle(labelColor)
+
+                        Button {
+                            withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+                                isVNCPasswordVisible.toggle()
+                            }
+                        } label: {
+                            Image(systemName: isVNCPasswordVisible ? "eye.slash.fill" : "eye.fill")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 36, height: 36)
+                                .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(isVNCPasswordVisible ? "Masquer le mot de passe VNC" : "Afficher le mot de passe VNC")
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 11)
+                .padding(.bottom, 9)
+            }
+            .glassEffect(cardGlass, in: .rect(cornerRadius: 22))
+        }
+        .onChange(of: vncURL) {
+            clearTransientFeedback()
+        }
+        .onChange(of: vncPassword) {
             clearTransientFeedback()
         }
     }
@@ -306,7 +398,6 @@ struct SettingsView: View {
                         )
                         .accessibilityLabel(option.title)
                         .accessibilityAddTraits(isSelected ? .isSelected : [])
-                        .accessibilityIdentifier(option.accessibilityID)
                     }
                 }
             }
@@ -337,7 +428,6 @@ struct SettingsView: View {
             .buttonStyle(.plain)
             .glassEffect(destructiveGlass.interactive(), in: .rect(cornerRadius: 20))
             .accessibilityLabel("Effacer l'historique")
-            .accessibilityIdentifier("clearHistorySettingsButton")
         }
     }
 
@@ -364,7 +454,6 @@ struct SettingsView: View {
                 Text(appVersion)
                     .font(.subheadline.monospacedDigit().weight(.medium))
                     .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("appVersionLabel")
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 11)
@@ -389,7 +478,6 @@ struct SettingsView: View {
             .buttonStyle(.glassProminent)
             .buttonBorderShape(.capsule)
             .controlSize(.large)
-            .accessibilityIdentifier("saveSettingsButton")
         }
         .padding(.horizontal, 16)
         .padding(.top, 6)
@@ -405,13 +493,12 @@ struct SettingsView: View {
     }
 
     private func loadInitialValues() {
-        if DemoMode.isEnabled {
-            serverURL = storedServerURL.isEmpty ? DemoMode.serverURL : storedServerURL
-            token = KeychainHelper.read() ?? DemoMode.placeholderToken
-        } else {
-            serverURL = storedServerURL
-            token = KeychainHelper.read() ?? ""
-        }
+        serverURL = storedServerURL
+        token = KeychainHelper.read(account: KeychainHelper.apiTokenAccount) ?? ""
+        vncURL = storedVNCURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? AppSettings.defaultVNCURL
+            : storedVNCURL
+        vncPassword = KeychainHelper.read(account: KeychainHelper.vncPasswordAccount) ?? ""
     }
 
     private func clearTransientFeedback() {
@@ -466,16 +553,26 @@ struct SettingsView: View {
     }
 
     private func saveSettings() {
-        let trimmedURL = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedServerURL = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedVNCURL = vncURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedVNCPassword = vncPassword.trimmingCharacters(in: .whitespacesAndNewlines)
 
         do {
             if trimmedToken.isEmpty {
-                KeychainHelper.delete()
+                KeychainHelper.delete(account: KeychainHelper.apiTokenAccount)
             } else {
-                try KeychainHelper.save(trimmedToken)
+                try KeychainHelper.save(trimmedToken, account: KeychainHelper.apiTokenAccount)
             }
-            storedServerURL = trimmedURL
+
+            if trimmedVNCPassword.isEmpty {
+                KeychainHelper.delete(account: KeychainHelper.vncPasswordAccount)
+            } else {
+                try KeychainHelper.save(trimmedVNCPassword, account: KeychainHelper.vncPasswordAccount)
+            }
+
+            storedServerURL = trimmedServerURL
+            storedVNCURL = trimmedVNCURL.isEmpty ? AppSettings.defaultVNCURL : trimmedVNCURL
             saveError = nil
             successFeedback += 1
             MonikaAPI.resetSession(cancelActiveTasks: false)
