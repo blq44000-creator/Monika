@@ -9,6 +9,13 @@ struct ChatHeader: View {
         GlassEffectContainer(spacing: 12) {
             HStack(spacing: 12) {
                 Menu {
+                    Button(action: onSettings) {
+                        Label("Réglages", systemImage: "gearshape")
+                    }
+                    .accessibilityIdentifier("menuSettingsButton")
+
+                    Divider()
+
                     Button(role: .destructive, action: onClearHistory) {
                         Label("Effacer l'historique", systemImage: "trash")
                     }
@@ -48,7 +55,8 @@ struct ChatHeader: View {
 
                 Spacer(minLength: 0)
 
-                GlassIconButton(systemName: "gearshape", label: "Réglages", action: onSettings)
+                GlassIconButton(systemName: "gearshape", label: "Ouvrir les réglages", action: onSettings)
+                    .accessibilityIdentifier("headerSettingsButton")
             }
         }
         .padding(.horizontal, 16)

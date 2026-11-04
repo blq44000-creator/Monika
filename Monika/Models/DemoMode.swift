@@ -5,8 +5,16 @@ import SwiftData
 /// (utilisé par le workflow GitHub pour les captures d'écran).
 /// Les données sont alors gardées en mémoire uniquement : le vrai historique n'est jamais touché.
 enum DemoMode {
+    static let serverURL = "https://exemple.com"
+    static let placeholderToken = "sk-monika-demo-1234567890"
+
     static var isEnabled: Bool {
         ProcessInfo.processInfo.arguments.contains("-MonikaDemo")
+    }
+
+    static func configureSettings() {
+        UserDefaults.standard.set(AppAppearance.system.rawValue, forKey: AppSettings.appearanceKey)
+        UserDefaults.standard.set(serverURL, forKey: AppSettings.serverURLKey)
     }
 
     @MainActor

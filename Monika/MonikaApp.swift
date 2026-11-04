@@ -3,16 +3,25 @@ import SwiftData
 
 @main
 struct MonikaApp: App {
+    @AppStorage(AppSettings.appearanceKey) private var appearanceRaw = AppAppearance.system.rawValue
     private let container: ModelContainer
 
     init() {
+        if DemoMode.isEnabled {
+            DemoMode.configureSettings()
+        }
         container = Self.makeContainer()
+    }
+
+    private var appearance: AppAppearance {
+        AppAppearance(rawValue: appearanceRaw) ?? .system
     }
 
     var body: some Scene {
         WindowGroup {
             ChatView()
                 .tint(Theme.accent)
+                .preferredColorScheme(appearance.colorScheme)
         }
         .modelContainer(container)
     }

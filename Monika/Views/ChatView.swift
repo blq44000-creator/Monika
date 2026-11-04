@@ -5,6 +5,7 @@ import SwiftData
 struct ChatView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Message.date) private var messages: [Message]
+    @AppStorage(AppSettings.appearanceKey) private var appearanceRaw = AppAppearance.system.rawValue
 
     @State private var draft = ""
     @State private var isTyping = false
@@ -88,8 +89,11 @@ struct ChatView: View {
             Text("Tous les messages seront supprimés de cet iPhone. Cette action est irréversible.")
         }
         .sheet(isPresented: $showSettings) {
-            SettingsPlaceholder()
-                .presentationDetents([.medium])
+            SettingsView()
+                .tint(Theme.accent)
+                .preferredColorScheme((AppAppearance(rawValue: appearanceRaw) ?? .system).colorScheme)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
     }
 
@@ -197,25 +201,6 @@ private struct DayLabel: View {
             ? day.formatted(Date.FormatStyle(locale: french).weekday(.wide).day().month(.wide))
             : day.formatted(Date.FormatStyle(locale: french).day().month(.wide).year())
         return text.prefix(1).uppercased() + text.dropFirst()
-    }
-}
-
-/// Écran temporaire — les vrais réglages arrivent à l'étape 3.
-private struct SettingsPlaceholder: View {
-    var body: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "gearshape.2.fill")
-                .font(.system(size: 44))
-                .foregroundStyle(.tint)
-                .symbolRenderingMode(.hierarchical)
-            Text("Réglages")
-                .font(.title2.bold())
-            Text("L'URL du serveur et le jeton d'accès seront configurables ici prochainement. 🔐".keepingEmojisAttached)
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding(32)
     }
 }
 
