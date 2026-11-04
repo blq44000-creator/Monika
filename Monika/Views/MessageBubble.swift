@@ -3,21 +3,30 @@ import SwiftUI
 /// Bulle de message en verre légèrement teinté.
 /// Utilisateur : à droite, teinte accent. Monika : à gauche, verre neutre.
 struct MessageBubble: View {
-    let message: Message
+    let text: String
+    let isFromUser: Bool
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var isUser: Bool { message.isFromUser }
+    init(message: Message) {
+        self.text = message.text
+        self.isFromUser = message.isFromUser
+    }
+
+    init(text: String, isFromUser: Bool) {
+        self.text = text
+        self.isFromUser = isFromUser
+    }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            if isUser {
+            if isFromUser {
                 Spacer(minLength: 56)
             } else {
                 MonikaAvatar(size: 26)
             }
 
-            Text(message.text.keepingEmojisAttached)
+            Text(text.keepingEmojisAttached)
                 .font(.body)
                 .foregroundStyle(textColor)
                 .multilineTextAlignment(.leading)
@@ -26,17 +35,17 @@ struct MessageBubble: View {
                 .glassEffect(glass, in: .rect(cornerRadius: 20))
                 .textSelection(.enabled)
 
-            if !isUser {
+            if !isFromUser {
                 Spacer(minLength: 40)
             }
         }
-        .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
+        .frame(maxWidth: .infinity, alignment: isFromUser ? .trailing : .leading)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(Text(isUser ? "Moi : " : "Monika : ") + Text(message.text))
+        .accessibilityLabel(Text(isFromUser ? "Moi : " : "Monika : ") + Text(text))
     }
 
     private var glass: Glass {
-        if isUser {
+        if isFromUser {
             return .regular.tint(Theme.accent.opacity(0.85))
         }
         // Mode clair : verre plus blanc pour un meilleur contraste du texte.
@@ -46,25 +55,119 @@ struct MessageBubble: View {
     }
 
     private var textColor: Color {
-        if isUser { return .white }
+        if isFromUser { return .white }
         return colorScheme == .dark ? .primary : Color(white: 0.06)
     }
 }
 
-/// Indicateur « Monika écrit… ».
+/// Indicateur « Monika écrit… » (3 points animés en Liquid Glass).
 struct TypingIndicator: View {
+    var showAvatar: Bool = true
+
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            MonikaAvatar(size: 26)
-            Image(systemName: "ellipsis")
-                .font(.system(size: 22, weight: .bold))
-                .symbolEffect(.variableColor.iterative.dimInactiveLayers, options: .repeating)
-                .foregroundStyle(.secondary)
-                .frame(width: 56, height: 38)
-                .glassEffect(.regular, in: .capsule)
-            Spacer()
+            if showAvatar {
+                MonikaAvatar(size: 26)
+            } else {
+                Color.clear
+                    .frame(width: 26, height: 26)
+                    .accessibilityHidden(true)
+            }
+
+            HStack(spacing: 8) {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 20, weight: .bold))
+                    .symbolEffect(.variableColor.iterative.dimInactiveLayers, options: .repeating)
+                    .foregroundStyle(Theme.accent)
+
+                Text("Monika écrit…")
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(colorScheme == .dark ? .secondary : Color(white: 0.25))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .glassEffect(pillGlass, in: .capsule)
+
+            Spacer(minLength: 40)
         }
-        .accessibilityLabel("Monika est en train d'écrire")
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Monika écrit")
+        .accessibilityIdentifier("typingIndicator")
+    }
+
+    private var pillGlass: Glass {
+        colorScheme == .dark
+            ? .regular.tint(Color.white.opacity(0.10))
+            : .regular.tint(Color.white.opacity(0.55))
+    }
+}
+
+/// Petite bulle discrète en verre rouge pour les erreurs réseau ou de configuration.
+struct ChatErrorBubble: View {
+    let error: MonikaChatError
+    var onRetry: () -> Void
+    var onOpenSettings: () -> Void = {}
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.red)
+                    .padding(.top, 2)
+
+                Text((error.errorDescription ?? "Une erreur est survenue.").keepingEmojisAttached)
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(colorScheme == .dark ? Color.primary : Color(white: 0.10))
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(spacing: 8) {
+                if error.opensSettings {
+                    Button(action: onOpenSettings) {
+                        Label("Réglages", systemImage: "gearshape")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(colorScheme == .dark ? Color.white : Color(white: 0.12))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .contentShape(.capsule)
+                    }
+                    .buttonStyle(.plain)
+                    .glassEffect(.regular.interactive(), in: .capsule)
+                    .accessibilityIdentifier("errorSettingsButton")
+                }
+
+                Button(action: onRetry) {
+                    Label("Réessayer", systemImage: "arrow.clockwise")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(colorScheme == .dark ? Color.white : Color(white: 0.12))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                            .contentShape(.capsule)
+                }
+                .buttonStyle(.plain)
+                .glassEffect(.regular.interactive(), in: .capsule)
+                .accessibilityIdentifier("retryButton")
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassEffect(errorGlass, in: .rect(cornerRadius: 18))
+        .padding(.leading, 34)
+        .padding(.trailing, 24)
+        .accessibilityIdentifier("chatErrorBubble")
+    }
+
+    private var errorGlass: Glass {
+        colorScheme == .dark
+            ? .regular.tint(Color.red.opacity(0.24))
+            : .regular.tint(Color.red.opacity(0.18))
     }
 }
 
@@ -75,6 +178,7 @@ struct TypingIndicator: View {
             MessageBubble(message: .welcome())
             MessageBubble(message: Message(text: "Rappelle-moi d'acheter du pain ce soir en rentrant 🥖", role: .user))
             TypingIndicator()
+            ChatErrorBubble(error: .unreachable, onRetry: {})
         }
         .padding()
     }

@@ -22,8 +22,8 @@ targets:
       base:
         PRODUCT_NAME: Monika
         PRODUCT_BUNDLE_IDENTIFIER: com.blq.monika
-        MARKETING_VERSION: "0.3.0"
-        CURRENT_PROJECT_VERSION: "3"
+        MARKETING_VERSION: "0.4.0"
+        CURRENT_PROJECT_VERSION: "4"
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Monika

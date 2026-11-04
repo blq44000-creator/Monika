@@ -1,15 +1,26 @@
 import SwiftUI
 import SwiftData
 
-/// Écran principal du chat. L'historique est lu et sauvegardé avec SwiftData.
+/// Écran principal du chat. L'historique est lu et sauvegardé avec SwiftData,
+/// et les réponses de Monika arrivent en streaming SSE (ou en mode factice sous DemoMode).
 struct ChatView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Message.date) private var messages: [Message]
+
+    @AppStorage(AppSettings.serverURLKey) private var storedServerURL = ""
     @AppStorage(AppSettings.appearanceKey) private var appearanceRaw = AppAppearance.system.rawValue
 
     @State private var draft = ""
-    @State private var isTyping = false
-    @State private var sendCount = 0
+    @State private var isGenerating = false
+    @State private var streamingText = ""
+    @State private var chatError: MonikaChatError?
+    @State private var generationTask: Task<Void, Never>?
+    @State private var activeGenerationID: UUID?
+
+    @State private var sendHapticTrigger = 0
+    @State private var replyHapticTrigger = 0
+    @State private var errorHapticTrigger = 0
+
     @State private var showSettings = false
     @State private var confirmClear = false
     @FocusState private var composerFocused: Bool
@@ -40,10 +51,29 @@ struct ChatView: View {
                             }
                         }
 
-                        if isTyping {
-                            TypingIndicator()
+                        if !streamingText.isEmpty {
+                            MessageBubble(text: streamingText, isFromUser: false)
+                                .id("streamingBubble")
+                                .transition(
+                                    .scale(scale: 0.92, anchor: .bottomLeading)
+                                        .combined(with: .opacity)
+                                )
+                        }
+
+                        if isGenerating {
+                            TypingIndicator(showAvatar: streamingText.isEmpty)
                                 .id("typing")
-                                .transition(.scale(scale: 0.8, anchor: .bottomLeading).combined(with: .opacity))
+                                .transition(.scale(scale: 0.85, anchor: .bottomLeading).combined(with: .opacity))
+                        }
+
+                        if let chatError {
+                            ChatErrorBubble(
+                                error: chatError,
+                                onRetry: retryLastMessage,
+                                onOpenSettings: { showSettings = true }
+                            )
+                            .id("errorBubble")
+                            .transition(.scale(scale: 0.9, anchor: .bottomLeading).combined(with: .opacity))
                         }
                     }
                     .padding(.horizontal, 16)
@@ -59,25 +89,46 @@ struct ChatView: View {
                     )
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
-                    ComposerBar(text: $draft, isFocused: $composerFocused, onSend: send)
-                        .onSubmit(send)
+                    ComposerBar(
+                        text: $draft,
+                        isFocused: $composerFocused,
+                        isGenerating: isGenerating,
+                        onSend: send,
+                        onStop: stopGeneration
+                    )
+                    .onSubmit(send)
                 }
                 .onAppear {
-                    // Au lancement : se placer directement sur le dernier message.
-                    if let last = messages.last {
-                        proxy.scrollTo(last.id, anchor: .bottom)
-                    }
+                    applyInitialDemoStateIfNeeded()
+                    scrollToBottom(proxy, animated: false)
                 }
                 .onChange(of: messages.count) {
-                    scrollToBottom(proxy)
+                    scrollToBottom(proxy, animated: true)
                 }
-                .onChange(of: isTyping) {
-                    scrollToBottom(proxy)
+                .onChange(of: isGenerating) {
+                    scrollToBottom(proxy, animated: true)
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(100))
+                        scrollToBottom(proxy, animated: true)
+                    }
+                }
+                .onChange(of: chatError) {
+                    scrollToBottom(proxy, animated: true)
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(100))
+                        scrollToBottom(proxy, animated: true)
+                    }
+                }
+                .onChange(of: streamingText) {
+                    scrollToBottom(proxy, animated: false)
                 }
             }
         }
         .task { insertWelcomeIfNeeded() }
-        .sensoryFeedback(.impact(weight: .medium), trigger: sendCount)
+        .onDisappear { generationTask?.cancel() }
+        .sensoryFeedback(.impact(weight: .light), trigger: sendHapticTrigger)
+        .sensoryFeedback(.impact(weight: .light), trigger: replyHapticTrigger)
+        .sensoryFeedback(.warning, trigger: errorHapticTrigger)
         .confirmationDialog(
             "Effacer l'historique ?",
             isPresented: $confirmClear,
@@ -113,15 +164,33 @@ struct ChatView: View {
         return sections
     }
 
-    // MARK: - Actions
+    // MARK: - Défilement & initialisation
 
-    private func scrollToBottom(_ proxy: ScrollViewProxy) {
-        withAnimation(spring) {
-            if isTyping {
+    private func scrollToBottom(_ proxy: ScrollViewProxy, animated: Bool) {
+        let action = {
+            if isGenerating {
                 proxy.scrollTo("typing", anchor: .bottom)
+            } else if chatError != nil {
+                proxy.scrollTo("errorBubble", anchor: .bottom)
+            } else if !streamingText.isEmpty {
+                proxy.scrollTo("streamingBubble", anchor: .bottom)
             } else if let last = messages.last {
                 proxy.scrollTo(last.id, anchor: .bottom)
             }
+        }
+        if animated {
+            withAnimation(spring, action)
+        } else {
+            action()
+        }
+    }
+
+    private func applyInitialDemoStateIfNeeded() {
+        guard DemoMode.isEnabled else { return }
+        if DemoMode.showsTypingState {
+            isGenerating = true
+        } else if DemoMode.showsNetworkError {
+            chatError = .unreachable
         }
     }
 
@@ -132,36 +201,183 @@ struct ChatView: View {
         try? modelContext.save()
     }
 
+    // MARK: - Envoi, Streaming & Annulation
+
     private func send() {
+        guard !isGenerating else { return }
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty else { return }
 
         withAnimation(spring) {
             modelContext.insert(Message(text: prompt, role: .user))
             draft = ""
+            chatError = nil
         }
         try? modelContext.save()
-        sendCount += 1
+        sendHapticTrigger += 1
 
-        // Réponse factice après 1 seconde (le vrai serveur arrive à l'étape 4).
-        Task {
-            try? await Task.sleep(for: .milliseconds(250))
-            withAnimation(spring) { isTyping = true }
-            try? await Task.sleep(for: .milliseconds(750))
-            withAnimation(spring) {
-                isTyping = false
-                modelContext.insert(Message(text: Message.mockReply(for: prompt), role: .assistant))
+        startAssistantGeneration(fallbackPrompt: prompt)
+    }
+
+    private func retryLastMessage() {
+        guard !isGenerating else { return }
+        let lastPrompt = messages.last(where: { $0.isFromUser })?.text ?? ""
+        withAnimation(spring) {
+            chatError = nil
+        }
+        startAssistantGeneration(fallbackPrompt: lastPrompt)
+    }
+
+    private func stopGeneration() {
+        generationTask?.cancel()
+        generationTask = nil
+        activeGenerationID = nil
+
+        let partial = streamingText.trimmingCharacters(in: .whitespacesAndNewlines)
+        withAnimation(spring) {
+            if !partial.isEmpty {
+                modelContext.insert(Message(text: partial, role: .assistant))
             }
+            streamingText = ""
+            isGenerating = false
+        }
+        if !partial.isEmpty {
             try? modelContext.save()
         }
     }
 
+    private func startAssistantGeneration(fallbackPrompt: String) {
+        generationTask?.cancel()
+        let generationID = UUID()
+        activeGenerationID = generationID
+
+        let contextPayload = recentContextMessages(limit: 30)
+        let serverURLSnapshot = storedServerURL
+
+        withAnimation(spring) {
+            streamingText = ""
+            chatError = nil
+            isGenerating = true
+        }
+
+        generationTask = Task {
+            if DemoMode.isEnabled {
+                await runDemoGeneration(prompt: fallbackPrompt, generationID: generationID)
+            } else {
+                await runLiveGeneration(
+                    serverURL: serverURLSnapshot,
+                    messages: contextPayload,
+                    generationID: generationID
+                )
+            }
+        }
+    }
+
+    private func recentContextMessages(limit: Int) -> [MonikaAPI.PayloadMessage] {
+        let descriptor = FetchDescriptor<Message>(sortBy: [SortDescriptor(\.date, order: .forward)])
+        let persisted = (try? modelContext.fetch(descriptor)) ?? messages
+        return persisted
+            .suffix(limit)
+            .filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .map { MonikaAPI.PayloadMessage(role: $0.role.rawValue, content: $0.text) }
+    }
+
+    private func runLiveGeneration(
+        serverURL: String,
+        messages: [MonikaAPI.PayloadMessage],
+        generationID: UUID
+    ) async {
+        var accumulated = ""
+        do {
+            for try await chunk in MonikaAPI.streamChat(rawServerURL: serverURL, messages: messages) {
+                guard activeGenerationID == generationID, !Task.isCancelled else { return }
+                accumulated += chunk
+                streamingText = accumulated
+            }
+
+            guard activeGenerationID == generationID, !Task.isCancelled else { return }
+            let finalReply = accumulated.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            withAnimation(spring) {
+                if !finalReply.isEmpty {
+                    modelContext.insert(Message(text: finalReply, role: .assistant))
+                }
+                streamingText = ""
+                isGenerating = false
+                activeGenerationID = nil
+            }
+            try? modelContext.save()
+            if !finalReply.isEmpty {
+                replyHapticTrigger += 1
+            }
+        } catch is CancellationError {
+            guard activeGenerationID == generationID else { return }
+            withAnimation(spring) {
+                streamingText = ""
+                isGenerating = false
+                activeGenerationID = nil
+            }
+        } catch {
+            guard activeGenerationID == generationID else { return }
+            let mapped = (error as? MonikaChatError) ?? .unreachable
+            withAnimation(spring) {
+                streamingText = ""
+                isGenerating = false
+                chatError = mapped
+                activeGenerationID = nil
+            }
+            errorHapticTrigger += 1
+        }
+    }
+
+    private func runDemoGeneration(prompt: String, generationID: UUID) async {
+        do {
+            try await Task.sleep(for: .milliseconds(700))
+            guard activeGenerationID == generationID, !Task.isCancelled else { return }
+
+            let fullReply = Message.mockReply(for: prompt)
+            let words = fullReply.split(separator: " ", omittingEmptySubsequences: false)
+            var built = ""
+
+            for (index, word) in words.enumerated() {
+                try Task.checkCancellation()
+                guard activeGenerationID == generationID else { return }
+                built += (index == 0 ? "" : " ") + String(word)
+                streamingText = built
+                try await Task.sleep(for: .milliseconds(45))
+            }
+
+            guard activeGenerationID == generationID, !Task.isCancelled else { return }
+            withAnimation(spring) {
+                modelContext.insert(Message(text: fullReply, role: .assistant))
+                streamingText = ""
+                isGenerating = false
+                activeGenerationID = nil
+            }
+            try? modelContext.save()
+            replyHapticTrigger += 1
+        } catch {
+            guard activeGenerationID == generationID else { return }
+            withAnimation(spring) {
+                streamingText = ""
+                isGenerating = false
+                activeGenerationID = nil
+            }
+        }
+    }
+
     private func clearHistory() {
+        generationTask?.cancel()
+        generationTask = nil
+        activeGenerationID = nil
+
         withAnimation(spring) {
             for message in messages {
                 modelContext.delete(message)
             }
-            isTyping = false
+            streamingText = ""
+            isGenerating = false
+            chatError = nil
         }
         try? modelContext.save()
         insertWelcomeIfNeeded()

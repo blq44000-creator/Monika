@@ -12,6 +12,8 @@ Monika/
     Message.swift              # Modèle SwiftData (texte, rôle, date)
     AppSettings.swift          # Apparence (@AppStorage) + test /v1/models
     DemoMode.swift             # Données de démo (-MonikaDemo YES), en mémoire
+  Services/
+    MonikaAPI.swift            # Client SSE compatible OpenAI (/v1/chat/completions)
   Utilities/
     KeychainHelper.swift       # Stockage du jeton dans le Keychain iOS
     String+Emoji.swift         # Emojis jamais seuls en début de ligne
@@ -32,7 +34,7 @@ Aucune compilation locale : tout passe par **GitHub Actions** (`macos-latest`, X
 À chaque push, l'onglet **Actions** produit :
 
 - `Monika-ipa` → `Monika.ipa` non signée (à signer/installer avec Sideloadly)
-- `Monika-screenshots` → captures du simulateur iPhone (iOS 26) : historique clair/sombre, menu ouvert, confirmation, réglages clair/sombre
+- `Monika-screenshots` → captures du simulateur iPhone (iOS 26) : historique clair/sombre, menu ouvert, confirmation, réglages clair/sombre, Monika écrit, erreur réseau
 - `build-logs` → journaux `xcodebuild`
 
 ## Feuille de route
@@ -40,5 +42,5 @@ Aucune compilation locale : tout passe par **GitHub Actions** (`macos-latest`, X
 - [x] Étape 1 — Structure, CI, écran de chat Liquid Glass (messages factices)
 - [x] Étape 2 — Historique SwiftData, séparateurs de date, effacement
 - [x] Étape 3 — Réglages (URL + jeton dans le Keychain)
-- [ ] Étape 4 — API compatible OpenAI (streaming)
-- [ ] Étape 5 — Gestion des erreurs
+- [x] Étape 4 — API compatible OpenAI (streaming)
+- [x] Étape 5 — Gestion des erreurs

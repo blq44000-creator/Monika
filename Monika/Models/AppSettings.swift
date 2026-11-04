@@ -105,6 +105,14 @@ enum ServerEndpoint {
             .appendingPathComponent("models")
     }
 
+    static func chatCompletionsURL(from raw: String) -> URL? {
+        guard let base = normalizedBaseURL(from: raw) else { return nil }
+        return base
+            .appendingPathComponent("v1")
+            .appendingPathComponent("chat")
+            .appendingPathComponent("completions")
+    }
+
     /// Vérifie la connexion via GET {URL}/v1/models avec Authorization: Bearer {jeton} (timeout 10 s).
     static func testConnection(rawURL: String, token: String) async -> ServerConnectionResult {
         let trimmedURL = rawURL.trimmingCharacters(in: .whitespacesAndNewlines)

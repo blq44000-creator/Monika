@@ -12,6 +12,16 @@ enum DemoMode {
         ProcessInfo.processInfo.arguments.contains("-MonikaDemo")
     }
 
+    /// Affiche l'indicateur « Monika écrit… » et le bouton stop (capture 07).
+    static var showsTypingState: Bool {
+        isEnabled && ProcessInfo.processInfo.arguments.contains("-MonikaDemoTyping")
+    }
+
+    /// Affiche une bulle d'erreur réseau simulée (capture 08).
+    static var showsNetworkError: Bool {
+        isEnabled && ProcessInfo.processInfo.arguments.contains("-MonikaDemoError")
+    }
+
     static func configureSettings() {
         UserDefaults.standard.set(AppAppearance.system.rawValue, forKey: AppSettings.appearanceKey)
         UserDefaults.standard.set(serverURL, forKey: AppSettings.serverURLKey)
@@ -34,6 +44,15 @@ enum DemoMode {
         ]
         for (offset, role, text) in samples {
             context.insert(Message(text: text, role: role, date: now.addingTimeInterval(offset)))
+        }
+        if showsTypingState || showsNetworkError {
+            context.insert(
+                Message(
+                    text: "Tu peux me préparer une idée de menu pour ce week-end ? 🥗",
+                    role: .user,
+                    date: now
+                )
+            )
         }
         try? context.save()
     }

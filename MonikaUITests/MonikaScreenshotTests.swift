@@ -1,7 +1,7 @@
 import XCTest
 
 /// Tests UI utilisés par le workflow GitHub pour capturer des écrans
-/// qu'on ne peut pas obtenir avec un simple `simctl` (menu ouvert, confirmation, réglages).
+/// qu'on ne peut pas obtenir avec un simple `simctl` (menu, réglages, saisie, erreur).
 final class MonikaScreenshotTests: XCTestCase {
 
     override func setUp() {
@@ -66,6 +66,35 @@ final class MonikaScreenshotTests: XCTestCase {
         if systemButton.exists {
             systemButton.tap()
         }
+    }
+
+    @MainActor
+    func testMonikaEcrit() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-MonikaDemo", "YES", "-MonikaDemoTyping", "YES"]
+        app.launch()
+
+        let indicator = app.descendants(matching: .any)["typingIndicator"]
+        XCTAssertTrue(indicator.waitForExistence(timeout: 15), "Indicateur « Monika écrit… » introuvable")
+
+        let stopButton = app.buttons["stopGenerationButton"]
+        XCTAssertTrue(stopButton.waitForExistence(timeout: 5), "Bouton stop introuvable")
+
+        sleep(2)
+        attachScreenshot(named: "07-monika-ecrit")
+    }
+
+    @MainActor
+    func testErreurReseau() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-MonikaDemo", "YES", "-MonikaDemoError", "YES"]
+        app.launch()
+
+        let retryButton = app.buttons["retryButton"]
+        XCTAssertTrue(retryButton.waitForExistence(timeout: 15), "Bouton « Réessayer » introuvable")
+
+        sleep(2)
+        attachScreenshot(named: "08-erreur-reseau")
     }
 
     @MainActor
