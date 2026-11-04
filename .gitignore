@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Xcode (le projet est généré par XcodeGen)
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+DerivedData/
+build/
+build-sim/
+
+# Artefacts
+Payload/
+*.ipa
+screenshots/

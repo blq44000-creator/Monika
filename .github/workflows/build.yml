@@ -1,0 +1,142 @@
+name: Build Monika
+
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build IPA + captures simulateur
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # a) Sélection de Xcode 26
+      - name: Sélectionner Xcode 26
+        run: |
+          echo "Xcode installés sur le runner :"
+          ls -d /Applications/Xcode*.app || true
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -V | tail -n 1 || true)
+          if [ -z "$XCODE" ]; then
+            XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1 || true)
+          fi
+          if [ -z "$XCODE" ]; then
+            XCODE=/Applications/Xcode.app
+          fi
+          echo "➡️  Sélection de $XCODE"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+          xcodebuild -version | head -n 1 | grep -q "Xcode 26" || { echo "❌ Xcode 26 introuvable"; exit 1; }
+          xcrun simctl list runtimes
+
+      # b) Génération du projet avec XcodeGen
+      - name: Installer XcodeGen
+        run: brew install xcodegen
+
+      - name: Générer Monika.xcodeproj
+        run: xcodegen generate
+
+      # c) Compilation non signée pour iPhone + IPA
+      - name: Compiler pour iPhone (non signé)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Monika.xcodeproj \
+            -scheme Monika \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build | tee xcodebuild-device.log | grep -E "error:|warning:|BUILD" || true
+          test -d build/Build/Products/Release-iphoneos/Monika.app
+
+      - name: Créer Monika.ipa
+        run: |
+          rm -rf Payload Monika.ipa
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/Monika.app Payload/
+          zip -qry Monika.ipa Payload
+          ls -lh Monika.ipa
+
+      # d) Simulateur iOS 26 + captures d'écran
+      - name: Compiler pour le simulateur
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Monika.xcodeproj \
+            -scheme Monika \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build-sim \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tee xcodebuild-sim.log | grep -E "error:|warning:|BUILD" || true
+          test -d build-sim/Build/Products/Debug-iphonesimulator/Monika.app
+
+      - name: Lancer le simulateur et prendre des captures
+        run: |
+          RUNTIME=$(xcrun simctl list runtimes -j | jq -r '[.runtimes[] | select(.isAvailable == true and (.name | startswith("iOS 26")))] | last | .identifier')
+          if [ -z "$RUNTIME" ] || [ "$RUNTIME" = "null" ]; then echo "❌ Aucun runtime iOS 26"; exit 1; fi
+          DEVICE_TYPE=$(xcrun simctl list runtimes -j | jq -r --arg rt "$RUNTIME" '.runtimes[] | select(.identifier == $rt) | [.supportedDeviceTypes[] | select(.productFamily == "iPhone" and (.name | test("Pro$")))] | last | .identifier')
+          if [ -z "$DEVICE_TYPE" ] || [ "$DEVICE_TYPE" = "null" ]; then
+            DEVICE_TYPE=$(xcrun simctl list runtimes -j | jq -r --arg rt "$RUNTIME" '.runtimes[] | select(.identifier == $rt) | [.supportedDeviceTypes[] | select(.productFamily == "iPhone")] | last | .identifier')
+          fi
+          echo "Runtime : $RUNTIME"
+          echo "Appareil : $DEVICE_TYPE"
+
+          UDID=$(xcrun simctl create "Monika-Sim" "$DEVICE_TYPE" "$RUNTIME")
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
+
+          xcrun simctl install "$UDID" build-sim/Build/Products/Debug-iphonesimulator/Monika.app
+          mkdir -p screenshots
+
+          # Mode clair
+          xcrun simctl ui "$UDID" appearance light
+          xcrun simctl launch "$UDID" com.blq.monika
+          sleep 8
+          xcrun simctl io "$UDID" screenshot screenshots/01-chat-clair.png
+
+          # Mode sombre
+          xcrun simctl terminate "$UDID" com.blq.monika || true
+          xcrun simctl ui "$UDID" appearance dark
+          xcrun simctl launch "$UDID" com.blq.monika
+          sleep 8
+          xcrun simctl io "$UDID" screenshot screenshots/02-chat-sombre.png
+
+          ls -lh screenshots
+
+      # e) Publication des artefacts
+      - name: Publier Monika.ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: Monika-ipa
+          path: Monika.ipa
+          if-no-files-found: error
+
+      - name: Publier les captures d'écran
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Monika-screenshots
+          path: screenshots/
+          if-no-files-found: warn
+
+      - name: Publier les logs de compilation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: xcodebuild-*.log
+          if-no-files-found: ignore

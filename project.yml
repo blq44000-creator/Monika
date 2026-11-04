@@ -1,0 +1,44 @@
+name: Monika
+
+options:
+  bundleIdPrefix: com.blq
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+
+targets:
+  Monika:
+    type: application
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: Monika
+    settings:
+      base:
+        PRODUCT_NAME: Monika
+        PRODUCT_BUNDLE_IDENTIFIER: com.blq.monika
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Monika
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
+        ENABLE_PREVIEWS: YES
+
+schemes:
+  Monika:
+    build:
+      targets:
+        Monika: all
+    run:
+      config: Debug
+    archive:
+      config: Release
