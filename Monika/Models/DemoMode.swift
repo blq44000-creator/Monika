@@ -7,6 +7,7 @@ import SwiftData
 enum DemoMode {
     static let serverURL = "https://exemple.com"
     static let placeholderToken = "sk-monika-demo-1234567890"
+    static let sampleDictatedText = "Peux-tu me rappeler mon rendez-vous de demain matin ?"
 
     static var isEnabled: Bool {
         ProcessInfo.processInfo.arguments.contains("-MonikaDemo")
@@ -22,6 +23,12 @@ enum DemoMode {
     static var showsNetworkError: Bool {
         let args = ProcessInfo.processInfo.arguments
         return isEnabled && (args.contains("-demoError") || args.contains("-MonikaDemoError"))
+    }
+
+    /// Affiche la dictée vocale active sans accéder au vrai micro (capture 10).
+    static var showsDictationState: Bool {
+        let args = ProcessInfo.processInfo.arguments
+        return isEnabled && (args.contains("-demoDictation") || args.contains("-MonikaDemoDictation"))
     }
 
     static func configureSettings() {

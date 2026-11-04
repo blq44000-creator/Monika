@@ -1,7 +1,7 @@
 import XCTest
 
-/// Tests UI utilisés par le workflow GitHub pour capturer des écrans
-/// qu'on ne peut pas obtenir avec un simple `simctl` (menu, réglages, saisie, erreur).
+/// Tests UI utilisés par le workflow GitHub pour capturer les écrans interactifs
+/// en DemoMode (réglages, confirmation d'effacement, streaming, erreur, pièces jointes, dictée).
 final class MonikaScreenshotTests: XCTestCase {
 
     override func setUp() {
@@ -9,22 +9,29 @@ final class MonikaScreenshotTests: XCTestCase {
     }
 
     @MainActor
-    func testMenuOuvert() throws {
+    func testConversationEtEffacement() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-MonikaDemo", "YES"]
         app.launch()
 
-        let menuButton = app.buttons["menuButton"]
-        XCTAssertTrue(menuButton.waitForExistence(timeout: 15), "Bouton menu introuvable")
+        let settingsButton = app.buttons["headerSettingsButton"]
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 15), "Bouton Reglages de l'en-tete introuvable")
         sleep(2)
-        menuButton.tap()
+        settingsButton.tap()
 
-        let clearItem = app.buttons["Effacer l'historique"]
-        XCTAssertTrue(clearItem.waitForExistence(timeout: 5), "Option Effacer introuvable")
+        let clearButton = app.buttons["clearHistorySettingsButton"]
+        XCTAssertTrue(clearButton.waitForExistence(timeout: 5), "Bouton Effacer l'historique introuvable")
+        if !clearButton.isHittable {
+            app.swipeUp()
+            sleep(1)
+        }
         sleep(1)
-        attachScreenshot(named: "03-menu-ouvert")
+        attachScreenshot(named: "03-reglages-conversation")
 
-        clearItem.tap()
+        clearButton.tap()
+
+        let cancelButton = app.buttons["Annuler"]
+        XCTAssertTrue(cancelButton.waitForExistence(timeout: 5), "Dialogue de confirmation introuvable")
         sleep(1)
         attachScreenshot(named: "04-confirmation-effacement")
     }
@@ -35,33 +42,26 @@ final class MonikaScreenshotTests: XCTestCase {
         app.launchArguments = ["-MonikaDemo", "YES"]
         app.launch()
 
-        let menuButton = app.buttons["menuButton"]
-        XCTAssertTrue(menuButton.waitForExistence(timeout: 15), "Bouton menu introuvable")
+        let settingsButton = app.buttons["headerSettingsButton"]
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 15), "Bouton Reglages de l'en-tete introuvable")
         sleep(2)
-        menuButton.tap()
-
-        let settingsItem = app.buttons["Réglages"]
-        XCTAssertTrue(settingsItem.waitForExistence(timeout: 5), "Option Reglages introuvable")
-        settingsItem.tap()
+        settingsButton.tap()
 
         let saveButton = app.buttons["saveSettingsButton"]
         XCTAssertTrue(saveButton.waitForExistence(timeout: 5), "Ecran Reglages non affiche")
 
-        // Capture en mode clair (en DemoMode : https://exemple.com + jeton masqué)
         let lightButton = app.buttons["appearanceLightButton"]
         XCTAssertTrue(lightButton.waitForExistence(timeout: 5), "Bouton Clair introuvable")
         lightButton.tap()
         sleep(2)
         attachScreenshot(named: "05-reglages-clair")
 
-        // Capture en mode sombre
         let darkButton = app.buttons["appearanceDarkButton"]
         XCTAssertTrue(darkButton.waitForExistence(timeout: 5), "Bouton Sombre introuvable")
         darkButton.tap()
         sleep(2)
         attachScreenshot(named: "06-reglages-sombre")
 
-        // Remet l'apparence sur Système
         let systemButton = app.buttons["appearanceSystemButton"]
         if systemButton.exists {
             systemButton.tap()
@@ -95,6 +95,43 @@ final class MonikaScreenshotTests: XCTestCase {
 
         sleep(2)
         attachScreenshot(named: "08-erreur-reseau")
+    }
+
+    @MainActor
+    func testPieceJointe() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-MonikaDemo", "YES"]
+        app.launch()
+
+        let attachmentButton = app.buttons["attachmentMenuButton"]
+        XCTAssertTrue(attachmentButton.waitForExistence(timeout: 15), "Bouton piece jointe introuvable")
+        sleep(2)
+        attachmentButton.tap()
+
+        let photoItem = app.buttons["Photo"]
+        XCTAssertTrue(photoItem.waitForExistence(timeout: 5), "Option Photo introuvable")
+
+        let fileItem = app.buttons["Fichier"]
+        XCTAssertTrue(fileItem.waitForExistence(timeout: 5), "Option Fichier introuvable")
+
+        sleep(1)
+        attachScreenshot(named: "09-piece-jointe")
+    }
+
+    @MainActor
+    func testDictee() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-MonikaDemo", "YES", "-demoDictation"]
+        app.launch()
+
+        let dictationButton = app.buttons["dictationButton"]
+        XCTAssertTrue(dictationButton.waitForExistence(timeout: 10), "Bouton dictee introuvable")
+
+        let composer = app.descendants(matching: .any)["composerTextField"]
+        XCTAssertTrue(composer.waitForExistence(timeout: 10), "Champ de saisie introuvable")
+
+        sleep(2)
+        attachScreenshot(named: "10-dictee")
     }
 
     @MainActor

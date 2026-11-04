@@ -15,6 +15,11 @@ final class Message {
     var roleRaw: String
     var date: Date
 
+    /// Métadonnées optionnelles de pièce jointe (migration légère automatique SwiftData).
+    var attachmentName: String?
+    @Attribute(.externalStorage) var attachmentImageData: Data?
+    var attachmentExtractedText: String?
+
     var role: MessageRole {
         get { MessageRole(rawValue: roleRaw) ?? .assistant }
         set { roleRaw = newValue.rawValue }
@@ -22,11 +27,22 @@ final class Message {
 
     var isFromUser: Bool { role == .user }
 
-    init(id: UUID = UUID(), text: String, role: MessageRole, date: Date = .now) {
+    init(
+        id: UUID = UUID(),
+        text: String,
+        role: MessageRole,
+        date: Date = .now,
+        attachmentName: String? = nil,
+        attachmentImageData: Data? = nil,
+        attachmentExtractedText: String? = nil
+    ) {
         self.id = id
         self.text = text
         self.roleRaw = role.rawValue
         self.date = date
+        self.attachmentName = attachmentName
+        self.attachmentImageData = attachmentImageData
+        self.attachmentExtractedText = attachmentExtractedText
     }
 }
 
@@ -41,7 +57,7 @@ extension Message {
         )
     }
 
-    /// Réponse factice (le vrai serveur arrive à l'étape 4).
+    /// Réponse factice utilisée uniquement en DemoMode.
     static func mockReply(for prompt: String) -> String {
         let replies = [
             "Intéressant ! 🤔 Dès que je serai connectée à ton serveur, je pourrai vraiment te répondre.",

@@ -7,6 +7,7 @@ struct MonikaApp: App {
     private let container: ModelContainer
 
     init() {
+        NetworkMonitor.shared.start()
         if DemoMode.isEnabled {
             DemoMode.configureSettings()
         }

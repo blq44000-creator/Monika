@@ -1,10 +1,14 @@
 import SwiftUI
 import SwiftData
+import PhotosUI
+import UniformTypeIdentifiers
+import UIKit
 
 /// Écran principal du chat. L'historique est lu et sauvegardé avec SwiftData,
 /// et les réponses de Monika arrivent en streaming SSE (ou en mode factice sous DemoMode).
 struct ChatView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \Message.date) private var messages: [Message]
 
     @AppStorage(AppSettings.serverURLKey) private var storedServerURL = ""
@@ -17,21 +21,47 @@ struct ChatView: View {
     @State private var generationTask: Task<Void, Never>?
     @State private var activeGenerationID: UUID?
 
+    // Protection contre la réinjection tardive de la dictée du clavier iOS
+    @State private var lastSentRawText = ""
+    @State private var lastSentTrimmedText = ""
+    @State private var suppressReinjectionUntil: Date = .distantPast
+    @State private var lastFocusLossDate: Date = .distantPast
+
+    // Gestion du cycle arrière-plan / premier plan
+    @State private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
+    @State private var needsResumeOnActive = false
+    @State private var interruptedPartialMessage: Message?
+    @State private var fallbackPartialText = ""
+
+    // Pièces jointes (PhotosPicker + Fichiers)
+    @State private var pendingAttachment: PendingAttachment?
+    @State private var showPhotoPicker = false
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var showFileImporter = false
+    @State private var infoAlertMessage: String?
+
+    // Dictée vocale interne (Speech + AVAudioEngine)
+    @State private var speechRecognizer: SpeechRecognizer
+
     @State private var sendHapticTrigger = 0
     @State private var replyHapticTrigger = 0
     @State private var errorHapticTrigger = 0
 
     @State private var showSettings = false
-    @State private var confirmClear = false
     @FocusState private var composerFocused: Bool
 
     private let spring = Animation.spring(response: 0.42, dampingFraction: 0.8)
 
     init() {
+        let demoDictation = DemoMode.showsDictationState
+        _speechRecognizer = State(initialValue: SpeechRecognizer(startInDemoState: demoDictation))
+
         if DemoMode.showsTypingState {
             _isGenerating = State(initialValue: true)
         } else if DemoMode.showsNetworkError {
             _chatError = State(initialValue: .unreachable)
+        } else if demoDictation {
+            _draft = State(initialValue: DemoMode.sampleDictatedText)
         }
     }
 
@@ -78,7 +108,7 @@ struct ChatView: View {
                             ChatErrorBubble(
                                 error: chatError,
                                 onRetry: retryLastMessage,
-                                onOpenSettings: { showSettings = true }
+                                onOpenSettings: openSettings
                             )
                             .id("errorBubble")
                             .transition(.scale(scale: 0.9, anchor: .bottomLeading).combined(with: .opacity))
@@ -91,16 +121,19 @@ struct ChatView: View {
                 .scrollDismissesKeyboard(.interactively)
                 .scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
                 .safeAreaInset(edge: .top, spacing: 0) {
-                    ChatHeader(
-                        onClearHistory: { confirmClear = true },
-                        onSettings: { showSettings = true }
-                    )
+                    ChatHeader(onSettings: openSettings)
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     ComposerBar(
                         text: $draft,
                         isFocused: $composerFocused,
                         isGenerating: isGenerating,
+                        isRecordingDictation: speechRecognizer.isRecording,
+                        pendingAttachment: pendingAttachment,
+                        onPickPhoto: { showPhotoPicker = true },
+                        onPickFile: { showFileImporter = true },
+                        onRemoveAttachment: removePendingAttachment,
+                        onToggleDictation: toggleVoiceDictation,
                         onSend: send,
                         onStop: stopGeneration
                     )
@@ -137,22 +170,86 @@ struct ChatView: View {
             }
         }
         .task { insertWelcomeIfNeeded() }
-        .onDisappear { generationTask?.cancel() }
+        .onDisappear {
+            generationTask?.cancel()
+            speechRecognizer.stopRecording()
+            endStreamingBackgroundTask()
+        }
+        .onChange(of: composerFocused) { _, focused in
+            if !focused {
+                lastFocusLossDate = Date.now
+            }
+        }
+        .onChange(of: draft) { _, newValue in
+            guard Date.now < suppressReinjectionUntil else { return }
+            let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return }
+            if trimmed == lastSentTrimmedText || newValue == lastSentRawText {
+                draft = ""
+            }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            handleScenePhaseChange(newPhase)
+        }
+        .onChange(of: selectedPhotoItem) { _, newItem in
+            guard let newItem else { return }
+            loadSelectedPhoto(newItem)
+        }
+        .onChange(of: speechRecognizer.errorMessage) { _, newError in
+            if let newError {
+                infoAlertMessage = newError
+                speechRecognizer.errorMessage = nil
+            }
+        }
+        .photosPicker(
+            isPresented: $showPhotoPicker,
+            selection: $selectedPhotoItem,
+            matching: .images,
+            photoLibrary: .shared()
+        )
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: [.pdf, .plainText, .utf8PlainText, .text, .sourceCode, .json, .image],
+            allowsMultipleSelection: false,
+            onCompletion: handleImportedFiles
+        )
         .sensoryFeedback(.impact(weight: .light), trigger: sendHapticTrigger)
         .sensoryFeedback(.impact(weight: .light), trigger: replyHapticTrigger)
         .sensoryFeedback(.warning, trigger: errorHapticTrigger)
-        .confirmationDialog(
-            "Effacer l'historique ?",
-            isPresented: $confirmClear,
-            titleVisibility: .visible
+        .alert(
+            "Autorisation requise",
+            isPresented: Binding(
+                get: { speechRecognizer.permissionDeniedMessage != nil },
+                set: { if !$0 { speechRecognizer.permissionDeniedMessage = nil } }
+            )
         ) {
-            Button("Effacer l'historique", role: .destructive, action: clearHistory)
-            Button("Annuler", role: .cancel) {}
+            Button("Ouvrir les Réglages") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+                speechRecognizer.permissionDeniedMessage = nil
+            }
+            Button("Annuler", role: .cancel) {
+                speechRecognizer.permissionDeniedMessage = nil
+            }
         } message: {
-            Text("Tous les messages seront supprimés de cet iPhone. Cette action est irréversible.")
+            Text(speechRecognizer.permissionDeniedMessage ?? "")
+        }
+        .alert(
+            "Information",
+            isPresented: Binding(
+                get: { infoAlertMessage != nil },
+                set: { if !$0 { infoAlertMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                infoAlertMessage = nil
+            }
+        } message: {
+            Text(infoAlertMessage ?? "")
         }
         .sheet(isPresented: $showSettings) {
-            SettingsView()
+            SettingsView(onClearHistory: clearHistory)
                 .tint(Theme.accent)
                 .preferredColorScheme((AppAppearance(rawValue: appearanceRaw) ?? .system).colorScheme)
                 .presentationDetents([.large])
@@ -203,6 +300,8 @@ struct ChatView: View {
             isGenerating = true
         } else if DemoMode.showsNetworkError {
             chatError = .unreachable
+        } else if DemoMode.showsDictationState && draft.isEmpty {
+            draft = DemoMode.sampleDictatedText
         }
     }
 
@@ -213,22 +312,135 @@ struct ChatView: View {
         try? modelContext.save()
     }
 
+    private func openSettings() {
+        if speechRecognizer.isRecording {
+            speechRecognizer.stopRecording()
+        }
+        showSettings = true
+    }
+
+    // MARK: - Pièces jointes & Dictée vocale
+
+    private func removePendingAttachment() {
+        withAnimation(spring) {
+            pendingAttachment = nil
+        }
+    }
+
+    private func loadSelectedPhoto(_ item: PhotosPickerItem) {
+        Task {
+            defer { selectedPhotoItem = nil }
+            do {
+                guard let data = try await item.loadTransferable(type: Data.self) else {
+                    infoAlertMessage = AttachmentError.unreadableImage.localizedDescription
+                    return
+                }
+                let processed = try AttachmentProcessor.processImageData(data, fileName: "Photo.jpg")
+                withAnimation(spring) {
+                    pendingAttachment = processed
+                }
+            } catch {
+                infoAlertMessage = AttachmentError.unreadableImage.localizedDescription
+            }
+        }
+    }
+
+    private func handleImportedFiles(_ result: Result<[URL], Error>) {
+        switch result {
+        case .failure:
+            return
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            do {
+                let processed = try AttachmentProcessor.processImportedFile(at: url)
+                withAnimation(spring) {
+                    pendingAttachment = processed
+                }
+            } catch {
+                infoAlertMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func toggleVoiceDictation() {
+        let startingText = draft
+        Task {
+            await speechRecognizer.toggleRecording(currentText: startingText) { liveTranscript in
+                suppressReinjectionUntil = .distantPast
+                draft = liveTranscript
+            }
+        }
+    }
+
     // MARK: - Envoi, Streaming & Annulation
 
     private func send() {
         guard !isGenerating else { return }
-        let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !prompt.isEmpty else { return }
 
+        if speechRecognizer.isRecording {
+            speechRecognizer.stopRecording()
+        }
+
+        // 1. Copie locale du texte et de la pièce jointe avant de modifier le focus
+        let rawDraft = draft
+        let trimmedPrompt = rawDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let attachment = pendingAttachment
+        guard !trimmedPrompt.isEmpty || attachment != nil else { return }
+
+        // 2. Mémorise l'état du clavier et arme le filtre anti-réinjection de la dictée iOS
+        let keepKeyboardOpen = composerFocused || Date.now.timeIntervalSince(lastFocusLossDate) < 0.25
+        lastSentRawText = rawDraft
+        lastSentTrimmedText = trimmedPrompt
+        suppressReinjectionUntil = Date.now.addingTimeInterval(0.8)
+
+        // 3. Retire immédiatement le focus (termine la dictée du clavier iOS)
+        composerFocused = false
+
+        // 4. Vide le champ et insère le message utilisateur
+        let message = buildUserMessage(prompt: trimmedPrompt, attachment: attachment)
         withAnimation(spring) {
-            modelContext.insert(Message(text: prompt, role: .user))
+            modelContext.insert(message)
             draft = ""
+            pendingAttachment = nil
             chatError = nil
         }
         try? modelContext.save()
         sendHapticTrigger += 1
 
-        startAssistantGeneration(fallbackPrompt: prompt)
+        // 5. Revide une seconde fois après ~0.15 s puis remet le focus pour garder le clavier ouvert
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            draft = ""
+            if keepKeyboardOpen {
+                composerFocused = true
+            }
+        }
+
+        let fallbackPrompt = trimmedPrompt.isEmpty ? (attachment?.fileName ?? "Pièce jointe") : trimmedPrompt
+        startAssistantGeneration(fallbackPrompt: fallbackPrompt)
+    }
+
+    private func buildUserMessage(prompt: String, attachment: PendingAttachment?) -> Message {
+        guard let attachment else {
+            return Message(text: prompt, role: .user)
+        }
+        switch attachment.kind {
+        case .image(let jpegData, _):
+            return Message(
+                text: prompt,
+                role: .user,
+                attachmentName: attachment.fileName,
+                attachmentImageData: jpegData,
+                attachmentExtractedText: nil
+            )
+        case .document(let extractedText):
+            return Message(
+                text: prompt,
+                role: .user,
+                attachmentName: attachment.fileName,
+                attachmentImageData: nil,
+                attachmentExtractedText: extractedText
+            )
+        }
     }
 
     private func retryLastMessage() {
@@ -244,6 +456,10 @@ struct ChatView: View {
         generationTask?.cancel()
         generationTask = nil
         activeGenerationID = nil
+        needsResumeOnActive = false
+        interruptedPartialMessage = nil
+        fallbackPartialText = ""
+        endStreamingBackgroundTask()
 
         let partial = streamingText.trimmingCharacters(in: .whitespacesAndNewlines)
         withAnimation(spring) {
@@ -288,10 +504,53 @@ struct ChatView: View {
     private func recentContextMessages(limit: Int) -> [MonikaAPI.PayloadMessage] {
         let descriptor = FetchDescriptor<Message>(sortBy: [SortDescriptor(\.date, order: .forward)])
         let persisted = (try? modelContext.fetch(descriptor)) ?? messages
-        return persisted
-            .suffix(limit)
-            .filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-            .map { MonikaAPI.PayloadMessage(role: $0.role.rawValue, content: $0.text) }
+        let slice = Array(persisted.suffix(limit))
+
+        // Conserve les images base64 sur les messages récents (jusqu'aux 6 dernières images)
+        let recentImageIDs = Set(
+            slice
+                .filter { $0.attachmentImageData != nil }
+                .suffix(6)
+                .map(\.id)
+        )
+
+        return slice.compactMap { message in
+            payloadMessage(from: message, includeImageData: recentImageIDs.contains(message.id))
+        }
+    }
+
+    private func payloadMessage(from message: Message, includeImageData: Bool) -> MonikaAPI.PayloadMessage? {
+        let cleanText = message.text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if message.isFromUser, let imageData = message.attachmentImageData {
+            if includeImageData {
+                let promptText = cleanText.isEmpty ? "Voici une image." : cleanText
+                return MonikaAPI.PayloadMessage(
+                    role: message.role.rawValue,
+                    parts: [
+                        .textPart(promptText),
+                        .jpegDataURL(imageData),
+                    ]
+                )
+            } else {
+                let label = message.attachmentName ?? "Photo.jpg"
+                let fallback = cleanText.isEmpty ? "[Image jointe : \(label)]" : "\(cleanText)\n[Image jointe : \(label)]"
+                return MonikaAPI.PayloadMessage(role: message.role.rawValue, content: fallback)
+            }
+        }
+
+        if message.isFromUser,
+           let extracted = message.attachmentExtractedText?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !extracted.isEmpty {
+            let fileName = message.attachmentName ?? "Fichier"
+            let combined = cleanText.isEmpty
+                ? "Voici le contenu du fichier « \(fileName) » :\n\n\(extracted)"
+                : "\(cleanText)\n\n---\nContenu du fichier « \(fileName) » :\n\(extracted)"
+            return MonikaAPI.PayloadMessage(role: message.role.rawValue, content: combined)
+        }
+
+        guard !cleanText.isEmpty else { return nil }
+        return MonikaAPI.PayloadMessage(role: message.role.rawValue, content: message.text)
     }
 
     private func runLiveGeneration(
@@ -318,6 +577,10 @@ struct ChatView: View {
                 isGenerating = false
                 activeGenerationID = nil
             }
+            interruptedPartialMessage = nil
+            fallbackPartialText = ""
+            needsResumeOnActive = false
+            endStreamingBackgroundTask()
             try? modelContext.save()
             if !finalReply.isEmpty {
                 replyHapticTrigger += 1
@@ -329,15 +592,34 @@ struct ChatView: View {
                 isGenerating = false
                 activeGenerationID = nil
             }
+            endStreamingBackgroundTask()
         } catch {
             guard activeGenerationID == generationID else { return }
+
+            // Si iOS coupe la socket pendant que l'app est en arrière-plan, on sauvegarde le partiel et on relancera au retour
+            if scenePhase == .background {
+                interruptStreamingForBackground(partialOverride: accumulated)
+                return
+            }
+
             let mapped = (error as? MonikaChatError) ?? .unreachable
+            let recoveredPartial = accumulated.trimmingCharacters(in: .whitespacesAndNewlines)
+            let savedBeforeRetry = fallbackPartialText
+
             withAnimation(spring) {
+                if !recoveredPartial.isEmpty {
+                    modelContext.insert(Message(text: recoveredPartial, role: .assistant))
+                } else if !savedBeforeRetry.isEmpty {
+                    modelContext.insert(Message(text: savedBeforeRetry, role: .assistant))
+                }
                 streamingText = ""
                 isGenerating = false
                 chatError = mapped
                 activeGenerationID = nil
             }
+            fallbackPartialText = ""
+            endStreamingBackgroundTask()
+            try? modelContext.save()
             errorHapticTrigger += 1
         }
     }
@@ -378,10 +660,96 @@ struct ChatView: View {
         }
     }
 
+    // MARK: - Cycle arrière-plan / premier plan
+
+    private func handleScenePhaseChange(_ newPhase: ScenePhase) {
+        switch newPhase {
+        case .background:
+            if speechRecognizer.isRecording && !DemoMode.isEnabled {
+                speechRecognizer.stopRecording()
+            }
+            if isGenerating && !DemoMode.isEnabled {
+                beginStreamingBackgroundTaskIfNeeded()
+            }
+
+        case .active:
+            endStreamingBackgroundTask()
+            if !DemoMode.isEnabled {
+                MonikaAPI.resetSession(cancelActiveTasks: !isGenerating)
+            }
+            if needsResumeOnActive && !isGenerating {
+                needsResumeOnActive = false
+                if let savedPartial = interruptedPartialMessage {
+                    modelContext.delete(savedPartial)
+                    try? modelContext.save()
+                    interruptedPartialMessage = nil
+                }
+                let lastPrompt = messages.last(where: { $0.isFromUser })?.text ?? ""
+                startAssistantGeneration(fallbackPrompt: lastPrompt)
+            }
+
+        case .inactive:
+            break
+
+        @unknown default:
+            break
+        }
+    }
+
+    private func beginStreamingBackgroundTaskIfNeeded() {
+        guard backgroundTaskID == .invalid else { return }
+        backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "MonikaStreamCompletion") {
+            Task { @MainActor in
+                interruptStreamingForBackground()
+            }
+        }
+    }
+
+    private func endStreamingBackgroundTask() {
+        guard backgroundTaskID != .invalid else { return }
+        let taskToEnd = backgroundTaskID
+        backgroundTaskID = .invalid
+        UIApplication.shared.endBackgroundTask(taskToEnd)
+    }
+
+    private func interruptStreamingForBackground(partialOverride: String? = nil) {
+        guard isGenerating || activeGenerationID != nil else {
+            endStreamingBackgroundTask()
+            return
+        }
+
+        generationTask?.cancel()
+        generationTask = nil
+        activeGenerationID = nil
+
+        let rawPartial = partialOverride ?? streamingText
+        let partial = rawPartial.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if !partial.isEmpty {
+            let saved = Message(text: partial, role: .assistant)
+            modelContext.insert(saved)
+            try? modelContext.save()
+            interruptedPartialMessage = saved
+            fallbackPartialText = partial
+        }
+
+        streamingText = ""
+        isGenerating = false
+        chatError = nil
+        needsResumeOnActive = true
+        endStreamingBackgroundTask()
+    }
+
+    // MARK: - Effacement de l'historique
+
     private func clearHistory() {
         generationTask?.cancel()
         generationTask = nil
         activeGenerationID = nil
+        needsResumeOnActive = false
+        interruptedPartialMessage = nil
+        fallbackPartialText = ""
+        endStreamingBackgroundTask()
 
         withAnimation(spring) {
             for message in messages {

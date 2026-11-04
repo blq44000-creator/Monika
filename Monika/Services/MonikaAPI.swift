@@ -10,6 +10,7 @@ enum MonikaChatError: LocalizedError, Equatable {
     case rateLimited
     case serverError(Int)
     case unreachable
+    case connectionLost
     case timedOut
     case noInternet
     case tlsError
@@ -35,6 +36,8 @@ enum MonikaChatError: LocalizedError, Equatable {
             return "Erreur interne du serveur (\(code))."
         case .unreachable:
             return "Serveur injoignable. Vérifie l'adresse ou l'état du serveur."
+        case .connectionLost:
+            return "La connexion avec le serveur a été interrompue. Réessaie."
         case .timedOut:
             return "Délai d'attente dépassé (120 s). Le serveur met trop de temps à répondre."
         case .noInternet:
@@ -67,9 +70,76 @@ enum MonikaAPI {
     static let defaultModel = "hermes-agent"
     static let timeoutSeconds: TimeInterval = 120
 
+    // MARK: - Contenu texte et multimodal OpenAI
+
+    struct ContentPart: Encodable, Sendable {
+        struct ImageURL: Encodable, Sendable {
+            let url: String
+        }
+
+        let type: String
+        let text: String?
+        let imageURL: ImageURL?
+
+        enum CodingKeys: String, CodingKey {
+            case type
+            case text
+            case imageURL = "image_url"
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(type, forKey: .type)
+            if let text {
+                try container.encode(text, forKey: .text)
+            }
+            if let imageURL {
+                try container.encode(imageURL, forKey: .imageURL)
+            }
+        }
+
+        static func textPart(_ value: String) -> ContentPart {
+            ContentPart(type: "text", text: value, imageURL: nil)
+        }
+
+        static func jpegDataURL(_ data: Data) -> ContentPart {
+            let base64 = data.base64EncodedString()
+            return ContentPart(
+                type: "image_url",
+                text: nil,
+                imageURL: ImageURL(url: "data:image/jpeg;base64,\(base64)")
+            )
+        }
+    }
+
+    enum MessageContent: Encodable, Sendable {
+        case text(String)
+        case parts([ContentPart])
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            switch self {
+            case .text(let value):
+                try container.encode(value)
+            case .parts(let items):
+                try container.encode(items)
+            }
+        }
+    }
+
     struct PayloadMessage: Encodable, Sendable {
         let role: String
-        let content: String
+        let content: MessageContent
+
+        init(role: String, content: String) {
+            self.role = role
+            self.content = .text(content)
+        }
+
+        init(role: String, parts: [ContentPart]) {
+            self.role = role
+            self.content = .parts(parts)
+        }
     }
 
     private struct ChatCompletionRequest: Encodable {
@@ -91,6 +161,54 @@ enum MonikaAPI {
         }
         let choices: [Choice]?
         let error: APIErrorPayload?
+    }
+
+    // MARK: - Gestion de l'URLSession (recréée proprement au retour en premier plan)
+
+    private final class SessionPool: @unchecked Sendable {
+        static let shared = SessionPool()
+
+        private let lock = NSLock()
+        private var currentSession: URLSession
+
+        private init() {
+            currentSession = Self.makeSession()
+        }
+
+        static func makeSession() -> URLSession {
+            let configuration = URLSessionConfiguration.ephemeral
+            configuration.waitsForConnectivity = true
+            configuration.timeoutIntervalForRequest = MonikaAPI.timeoutSeconds
+            configuration.timeoutIntervalForResource = 300
+            return URLSession(configuration: configuration)
+        }
+
+        func session() -> URLSession {
+            lock.lock()
+            defer { lock.unlock() }
+            return currentSession
+        }
+
+        @discardableResult
+        func reset(cancelActiveTasks: Bool) -> URLSession {
+            lock.lock()
+            let previous = currentSession
+            let fresh = Self.makeSession()
+            currentSession = fresh
+            lock.unlock()
+
+            if cancelActiveTasks {
+                previous.invalidateAndCancel()
+            } else {
+                previous.finishTasksAndInvalidate()
+            }
+            return fresh
+        }
+    }
+
+    /// Invalide l'URLSession actuelle et en recrée une neuve (`waitsForConnectivity = true`).
+    static func resetSession(cancelActiveTasks: Bool = false) {
+        _ = SessionPool.shared.reset(cancelActiveTasks: cancelActiveTasks)
     }
 
     /// Envoie l'historique récent et diffuse les fragments de texte au fil de l'eau (SSE).
@@ -120,7 +238,13 @@ enum MonikaAPI {
         }
     }
 
-    // MARK: - Exécution interne
+    // MARK: - Exécution interne & retry silencieux
+
+    private enum StreamAttemptOutcome {
+        case success
+        case retryable(Error)
+        case fatal(Error)
+    }
 
     private static func performStream(
         rawServerURL: String,
@@ -152,26 +276,66 @@ enum MonikaAPI {
         let body = ChatCompletionRequest(model: model, messages: messages, stream: true)
         request.httpBody = try JSONEncoder().encode(body)
 
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = timeoutSeconds
-        configuration.timeoutIntervalForResource = 300
-        let session = URLSession(configuration: configuration)
-        defer { session.invalidateAndCancel() }
+        // Retry automatique silencieux 1 fois après 0.5 s sur -1005, -1009, -1001
+        for attempt in 0...1 {
+            try Task.checkCancellation()
 
+            if !NetworkMonitor.shared.isConnected {
+                if attempt == 0 {
+                    try await Task.sleep(for: .milliseconds(500))
+                    continue
+                }
+                throw MonikaChatError.noInternet
+            }
+
+            let session = SessionPool.shared.session()
+            let outcome = await executeSingleAttempt(
+                request: request,
+                session: session,
+                continuation: continuation
+            )
+
+            switch outcome {
+            case .success:
+                return
+            case .fatal(let error):
+                throw error
+            case .retryable(let transientError):
+                if attempt == 0 && !Task.isCancelled {
+                    _ = SessionPool.shared.reset(cancelActiveTasks: true)
+                    try await Task.sleep(for: .milliseconds(500))
+                    continue
+                }
+                throw mapError(transientError)
+            }
+        }
+    }
+
+    private static func executeSingleAttempt(
+        request: URLRequest,
+        session: URLSession,
+        continuation: AsyncThrowingStream<String, Error>.Continuation
+    ) async -> StreamAttemptOutcome {
         let bytes: URLSession.AsyncBytes
         let response: URLResponse
         do {
             (bytes, response) = try await session.bytes(for: request)
         } catch {
-            throw mapError(error)
+            if isCancellation(error) {
+                return .fatal(CancellationError())
+            }
+            if isRetryableNetworkError(error) {
+                return .retryable(error)
+            }
+            return .fatal(mapError(error))
         }
 
         guard let http = response as? HTTPURLResponse else {
-            throw MonikaChatError.unreachable
+            return .fatal(MonikaChatError.unreachable)
         }
 
         guard (200...299).contains(http.statusCode) else {
-            throw mapStatusCode(http.statusCode)
+            return .fatal(mapStatusCode(http.statusCode))
         }
 
         let contentType = http.value(forHTTPHeaderField: "Content-Type")?.lowercased() ?? ""
@@ -183,13 +347,19 @@ enum MonikaAPI {
                     data.append(byte)
                 }
             } catch {
-                throw mapError(error)
+                if isCancellation(error) {
+                    return .fatal(CancellationError())
+                }
+                if isRetryableNetworkError(error) {
+                    return .retryable(error)
+                }
+                return .fatal(mapError(error))
             }
             if let singleText = decodeSingleContent(from: data), !singleText.isEmpty {
                 continuation.yield(singleText)
-                return
+                return .success
             }
-            throw MonikaChatError.emptyResponse
+            return .fatal(MonikaChatError.emptyResponse)
         }
 
         var lineBuffer = Data()
@@ -230,7 +400,13 @@ enum MonikaAPI {
                 )
             }
         } catch {
-            throw mapError(error)
+            if isCancellation(error) {
+                return .fatal(CancellationError())
+            }
+            if !yieldedContent && isRetryableNetworkError(error) {
+                return .retryable(error)
+            }
+            return .fatal(mapError(error))
         }
 
         if !sawSSELine,
@@ -241,8 +417,10 @@ enum MonikaAPI {
         }
 
         if !yieldedContent {
-            throw MonikaChatError.emptyResponse
+            return .fatal(MonikaChatError.emptyResponse)
         }
+
+        return .success
     }
 
     private static func processLine(
@@ -300,6 +478,28 @@ enum MonikaAPI {
             ?? decoded.choices?.first?.delta?.content
     }
 
+    private static func isCancellation(_ error: Error) -> Bool {
+        if error is CancellationError {
+            return true
+        }
+        if let urlError = error as? URLError, urlError.code == .cancelled {
+            return true
+        }
+        return false
+    }
+
+    private static func isRetryableNetworkError(_ error: Error) -> Bool {
+        guard let urlError = error as? URLError else { return false }
+        switch urlError.code {
+        case .networkConnectionLost,     // -1005
+             .notConnectedToInternet,    // -1009
+             .timedOut:                  // -1001
+            return true
+        default:
+            return false
+        }
+    }
+
     private static func mapStatusCode(_ statusCode: Int) -> MonikaChatError {
         switch statusCode {
         case 401:
@@ -320,7 +520,7 @@ enum MonikaAPI {
     }
 
     private static func mapError(_ error: Error) -> Error {
-        if error is CancellationError {
+        if isCancellation(error) {
             return CancellationError()
         }
         if let chatError = error as? MonikaChatError {
@@ -333,7 +533,9 @@ enum MonikaAPI {
             case .timedOut:
                 return MonikaChatError.timedOut
             case .notConnectedToInternet, .networkConnectionLost, .dataNotAllowed:
-                return MonikaChatError.noInternet
+                return NetworkMonitor.shared.isConnected
+                    ? MonikaChatError.connectionLost
+                    : MonikaChatError.noInternet
             case .cannotFindHost, .dnsLookupFailed, .cannotConnectToHost:
                 return MonikaChatError.unreachable
             case .secureConnectionFailed,

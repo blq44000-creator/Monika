@@ -169,7 +169,10 @@ enum ServerEndpoint {
             case .timedOut:
                 return .failed("Délai d'attente dépassé (10 s). Serveur injoignable.")
             case .notConnectedToInternet, .networkConnectionLost, .dataNotAllowed:
-                return .failed("Aucune connexion à Internet.")
+                if !NetworkMonitor.shared.isConnected {
+                    return .failed("Aucune connexion à Internet.")
+                }
+                return .failed("Connexion interrompue avec le serveur. Réessayez.")
             case .cannotFindHost, .dnsLookupFailed:
                 return .failed("Serveur introuvable. Vérifiez l'URL.")
             case .cannotConnectToHost:

@@ -1,9 +1,13 @@
 import SwiftUI
+import SwiftData
 
-/// Écran Réglages en Liquid Glass : serveur, jeton Keychain, apparence et version.
+/// Écran Réglages en Liquid Glass : serveur, jeton Keychain, apparence, conversation et version.
 struct SettingsView: View {
+    var onClearHistory: (() -> Void)? = nil
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.modelContext) private var modelContext
 
     @AppStorage(AppSettings.serverURLKey) private var storedServerURL = ""
     @AppStorage(AppSettings.appearanceKey) private var appearanceRaw = AppAppearance.system.rawValue
@@ -15,6 +19,7 @@ struct SettingsView: View {
     @State private var connectionResult: ServerConnectionResult?
     @State private var saveError: String?
     @State private var testTask: Task<Void, Never>?
+    @State private var confirmClearHistory = false
 
     @State private var successFeedback = 0
     @State private var errorFeedback = 0
@@ -31,13 +36,19 @@ struct SettingsView: View {
             : .regular.tint(Color.white.opacity(0.55))
     }
 
+    private var destructiveGlass: Glass {
+        colorScheme == .dark
+            ? .regular.tint(Color.red.opacity(0.22))
+            : .regular.tint(Color.red.opacity(0.14))
+    }
+
     private var labelColor: Color {
         colorScheme == .dark ? .primary : Color(white: 0.08)
     }
 
     private var appVersion: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.4.0"
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "4"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.5.0"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "5"
         return "\(version) (\(build))"
     }
 
@@ -46,13 +57,14 @@ struct SettingsView: View {
             AnimatedBackground()
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 18) {
                     serverSection
                     appearanceSection
+                    conversationSection
                     aboutSection
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.vertical, 10)
             }
             .scrollDismissesKeyboard(.interactively)
             .scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
@@ -68,6 +80,16 @@ struct SettingsView: View {
         .sensoryFeedback(.success, trigger: successFeedback)
         .sensoryFeedback(.error, trigger: errorFeedback)
         .sensoryFeedback(.selection, trigger: appearanceRaw)
+        .confirmationDialog(
+            "Effacer l'historique ?",
+            isPresented: $confirmClearHistory,
+            titleVisibility: .visible
+        ) {
+            Button("Effacer l'historique", role: .destructive, action: performClearHistory)
+            Button("Annuler", role: .cancel) {}
+        } message: {
+            Text("Tous les messages seront supprimés de cet iPhone. Cette action est irréversible.")
+        }
     }
 
     // MARK: - En-tête
@@ -137,7 +159,7 @@ struct SettingsView: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.vertical, 11)
 
                 Divider()
                     .overlay(Color.primary.opacity(0.12))
@@ -190,8 +212,8 @@ struct SettingsView: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 10)
+                .padding(.top, 11)
+                .padding(.bottom, 9)
             }
             .glassEffect(cardGlass, in: .rect(cornerRadius: 22))
 
@@ -210,7 +232,7 @@ struct SettingsView: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(labelColor)
                 }
-                .frame(maxWidth: .infinity, minHeight: 46)
+                .frame(maxWidth: .infinity, minHeight: 44)
                 .contentShape(.capsule)
             }
             .buttonStyle(.plain)
@@ -272,7 +294,7 @@ struct SettingsView: View {
                             }
                             .foregroundStyle(isSelected ? Color.white : labelColor)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
+                            .padding(.vertical, 11)
                             .contentShape(.rect(cornerRadius: 18))
                         }
                         .buttonStyle(.plain)
@@ -288,6 +310,34 @@ struct SettingsView: View {
                     }
                 }
             }
+        }
+    }
+
+    // MARK: - Section Conversation
+
+    private var conversationSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionHeader(title: "Conversation", systemImage: "bubble.left.and.bubble.right")
+
+            Button {
+                confirmClearHistory = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "trash.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.red)
+
+                    Text("Effacer l'historique")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.red)
+                }
+                .frame(maxWidth: .infinity, minHeight: 46)
+                .contentShape(.rect(cornerRadius: 20))
+            }
+            .buttonStyle(.plain)
+            .glassEffect(destructiveGlass.interactive(), in: .rect(cornerRadius: 20))
+            .accessibilityLabel("Effacer l'historique")
+            .accessibilityIdentifier("clearHistorySettingsButton")
         }
     }
 
@@ -317,7 +367,7 @@ struct SettingsView: View {
                     .accessibilityIdentifier("appVersionLabel")
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.vertical, 11)
             .glassEffect(cardGlass, in: .rect(cornerRadius: 20))
         }
     }
@@ -372,6 +422,23 @@ struct SettingsView: View {
         }
     }
 
+    private func performClearHistory() {
+        if let onClearHistory {
+            onClearHistory()
+        } else {
+            let descriptor = FetchDescriptor<Message>()
+            if let existing = try? modelContext.fetch(descriptor) {
+                for message in existing {
+                    modelContext.delete(message)
+                }
+            }
+            modelContext.insert(Message.welcome())
+            try? modelContext.save()
+        }
+        successFeedback += 1
+        dismiss()
+    }
+
     private func runConnectionTest() {
         testTask?.cancel()
         withAnimation(spring) {
@@ -411,6 +478,7 @@ struct SettingsView: View {
             storedServerURL = trimmedURL
             saveError = nil
             successFeedback += 1
+            MonikaAPI.resetSession(cancelActiveTasks: false)
             dismiss()
         } catch {
             withAnimation(spring) {
@@ -438,10 +506,12 @@ private struct SectionHeader: View {
 #Preview("Réglages — Clair") {
     SettingsView()
         .tint(Theme.accent)
+        .modelContainer(for: Message.self, inMemory: true)
 }
 
 #Preview("Réglages — Sombre") {
     SettingsView()
         .tint(Theme.accent)
+        .modelContainer(for: Message.self, inMemory: true)
         .preferredColorScheme(.dark)
 }

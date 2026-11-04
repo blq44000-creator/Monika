@@ -1,21 +1,37 @@
 import SwiftUI
+import UIKit
 
 /// Bulle de message en verre légèrement teinté.
-/// Utilisateur : à droite, teinte accent. Monika : à gauche, verre neutre.
+/// Utilisateur : à droite, teinte accent (+ aperçu photo ou fichier joint). Monika : à gauche, verre neutre.
 struct MessageBubble: View {
     let text: String
     let isFromUser: Bool
+    let attachmentName: String?
+    let attachmentImageData: Data?
 
     @Environment(\.colorScheme) private var colorScheme
 
     init(message: Message) {
         self.text = message.text
         self.isFromUser = message.isFromUser
+        self.attachmentName = message.attachmentName
+        self.attachmentImageData = message.attachmentImageData
     }
 
-    init(text: String, isFromUser: Bool) {
+    init(
+        text: String,
+        isFromUser: Bool,
+        attachmentName: String? = nil,
+        attachmentImageData: Data? = nil
+    ) {
         self.text = text
         self.isFromUser = isFromUser
+        self.attachmentName = attachmentName
+        self.attachmentImageData = attachmentImageData
+    }
+
+    private var hasAttachment: Bool {
+        attachmentImageData != nil || attachmentName != nil
     }
 
     var body: some View {
@@ -26,14 +42,54 @@ struct MessageBubble: View {
                 MonikaAvatar(size: 26)
             }
 
-            Text(text.keepingEmojisAttached)
-                .font(.body)
-                .foregroundStyle(textColor)
-                .multilineTextAlignment(.leading)
-                .padding(.horizontal, 14)
+            if hasAttachment {
+                VStack(alignment: .leading, spacing: 8) {
+                    if let imageData = attachmentImageData,
+                       let uiImage = UIImage(data: imageData) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: 210, maxHeight: 210)
+                            .clipShape(.rect(cornerRadius: 14))
+                    } else if let attachmentName {
+                        HStack(spacing: 8) {
+                            Image(systemName: "doc.text.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(isFromUser ? Color.white.opacity(0.92) : Theme.accent)
+                            Text(attachmentName)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(textColor)
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            Color.white.opacity(isFromUser ? 0.16 : 0.25),
+                            in: .capsule
+                        )
+                    }
+
+                    if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text(text.keepingEmojisAttached)
+                            .font(.body)
+                            .foregroundStyle(textColor)
+                            .multilineTextAlignment(.leading)
+                            .textSelection(.enabled)
+                    }
+                }
+                .padding(.horizontal, 12)
                 .padding(.vertical, 10)
                 .glassEffect(glass, in: .rect(cornerRadius: 20))
-                .textSelection(.enabled)
+            } else {
+                Text(text.keepingEmojisAttached)
+                    .font(.body)
+                    .foregroundStyle(textColor)
+                    .multilineTextAlignment(.leading)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .glassEffect(glass, in: .rect(cornerRadius: 20))
+                    .textSelection(.enabled)
+            }
 
             if !isFromUser {
                 Spacer(minLength: 40)
@@ -41,7 +97,15 @@ struct MessageBubble: View {
         }
         .frame(maxWidth: .infinity, alignment: isFromUser ? .trailing : .leading)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(Text(isFromUser ? "Moi : " : "Monika : ") + Text(text))
+        .accessibilityLabel(accessibilitySummary)
+    }
+
+    private var accessibilitySummary: Text {
+        let prefix = isFromUser ? "Moi : " : "Monika : "
+        if let attachmentName, text.isEmpty {
+            return Text(prefix + attachmentName)
+        }
+        return Text(prefix) + Text(text)
     }
 
     private var glass: Glass {

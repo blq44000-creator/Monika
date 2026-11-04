@@ -22,8 +22,8 @@ targets:
       base:
         PRODUCT_NAME: Monika
         PRODUCT_BUNDLE_IDENTIFIER: com.blq.monika
-        MARKETING_VERSION: "0.4.0"
-        CURRENT_PROJECT_VERSION: "4"
+        MARKETING_VERSION: "0.5.0"
+        CURRENT_PROJECT_VERSION: "5"
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Monika
@@ -31,6 +31,9 @@ targets:
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "Monika accède à ta photothèque uniquement lorsque tu choisis d'envoyer une photo dans la conversation."
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "Monika utilise le microphone pour transcrire ta voix en message lorsque tu actives la dictée."
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "Monika utilise la reconnaissance vocale d'iOS pour convertir ta voix en texte dans le champ de saisie."
         ENABLE_PREVIEWS: YES
 
   # Tests UI : servent uniquement à prendre des captures dans le workflow GitHub.
