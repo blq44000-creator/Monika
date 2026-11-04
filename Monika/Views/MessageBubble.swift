@@ -139,6 +139,7 @@ struct ChatErrorBubble: View {
                     }
                     .buttonStyle(.plain)
                     .glassEffect(.regular.interactive(), in: .capsule)
+                    .accessibilityLabel("Réglages")
                     .accessibilityIdentifier("errorSettingsButton")
                 }
 
@@ -148,10 +149,11 @@ struct ChatErrorBubble: View {
                         .foregroundStyle(colorScheme == .dark ? Color.white : Color(white: 0.12))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                            .contentShape(.capsule)
+                        .contentShape(.capsule)
                 }
                 .buttonStyle(.plain)
                 .glassEffect(.regular.interactive(), in: .capsule)
+                .accessibilityLabel("Réessayer")
                 .accessibilityIdentifier("retryButton")
             }
         }
@@ -161,7 +163,6 @@ struct ChatErrorBubble: View {
         .glassEffect(errorGlass, in: .rect(cornerRadius: 18))
         .padding(.leading, 34)
         .padding(.trailing, 24)
-        .accessibilityIdentifier("chatErrorBubble")
     }
 
     private var errorGlass: Glass {

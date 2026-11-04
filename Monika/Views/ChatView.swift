@@ -27,6 +27,14 @@ struct ChatView: View {
 
     private let spring = Animation.spring(response: 0.42, dampingFraction: 0.8)
 
+    init() {
+        if DemoMode.showsTypingState {
+            _isGenerating = State(initialValue: true)
+        } else if DemoMode.showsNetworkError {
+            _chatError = State(initialValue: .unreachable)
+        }
+    }
+
     var body: some View {
         ZStack {
             AnimatedBackground()
@@ -100,6 +108,10 @@ struct ChatView: View {
                 }
                 .onAppear {
                     applyInitialDemoStateIfNeeded()
+                    scrollToBottom(proxy, animated: false)
+                }
+                .task {
+                    try? await Task.sleep(for: .milliseconds(150))
                     scrollToBottom(proxy, animated: false)
                 }
                 .onChange(of: messages.count) {

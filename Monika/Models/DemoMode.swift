@@ -14,12 +14,14 @@ enum DemoMode {
 
     /// Affiche l'indicateur « Monika écrit… » et le bouton stop (capture 07).
     static var showsTypingState: Bool {
-        isEnabled && ProcessInfo.processInfo.arguments.contains("-MonikaDemoTyping")
+        let args = ProcessInfo.processInfo.arguments
+        return isEnabled && (args.contains("-demoTyping") || args.contains("-MonikaDemoTyping"))
     }
 
     /// Affiche une bulle d'erreur réseau simulée (capture 08).
     static var showsNetworkError: Bool {
-        isEnabled && ProcessInfo.processInfo.arguments.contains("-MonikaDemoError")
+        let args = ProcessInfo.processInfo.arguments
+        return isEnabled && (args.contains("-demoError") || args.contains("-MonikaDemoError"))
     }
 
     static func configureSettings() {

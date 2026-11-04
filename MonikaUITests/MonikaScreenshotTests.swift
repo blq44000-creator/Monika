@@ -20,7 +20,7 @@ final class MonikaScreenshotTests: XCTestCase {
         menuButton.tap()
 
         let clearItem = app.buttons["Effacer l'historique"]
-        XCTAssertTrue(clearItem.waitForExistence(timeout: 5), "Option « Effacer l'historique » introuvable")
+        XCTAssertTrue(clearItem.waitForExistence(timeout: 5), "Option Effacer introuvable")
         sleep(1)
         attachScreenshot(named: "03-menu-ouvert")
 
@@ -41,11 +41,11 @@ final class MonikaScreenshotTests: XCTestCase {
         menuButton.tap()
 
         let settingsItem = app.buttons["Réglages"]
-        XCTAssertTrue(settingsItem.waitForExistence(timeout: 5), "Option « Réglages » introuvable")
+        XCTAssertTrue(settingsItem.waitForExistence(timeout: 5), "Option Reglages introuvable")
         settingsItem.tap()
 
         let saveButton = app.buttons["saveSettingsButton"]
-        XCTAssertTrue(saveButton.waitForExistence(timeout: 5), "Écran Réglages non affiché")
+        XCTAssertTrue(saveButton.waitForExistence(timeout: 5), "Ecran Reglages non affiche")
 
         // Capture en mode clair (en DemoMode : https://exemple.com + jeton masqué)
         let lightButton = app.buttons["appearanceLightButton"]
@@ -71,14 +71,14 @@ final class MonikaScreenshotTests: XCTestCase {
     @MainActor
     func testMonikaEcrit() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-MonikaDemo", "YES", "-MonikaDemoTyping", "YES"]
+        app.launchArguments = ["-MonikaDemo", "YES", "-demoTyping"]
         app.launch()
 
         let indicator = app.descendants(matching: .any)["typingIndicator"]
-        XCTAssertTrue(indicator.waitForExistence(timeout: 15), "Indicateur « Monika écrit… » introuvable")
+        XCTAssertTrue(indicator.waitForExistence(timeout: 10), "Indicateur Monika ecrit introuvable")
 
         let stopButton = app.buttons["stopGenerationButton"]
-        XCTAssertTrue(stopButton.waitForExistence(timeout: 5), "Bouton stop introuvable")
+        XCTAssertTrue(stopButton.waitForExistence(timeout: 10), "Bouton stop introuvable")
 
         sleep(2)
         attachScreenshot(named: "07-monika-ecrit")
@@ -87,11 +87,11 @@ final class MonikaScreenshotTests: XCTestCase {
     @MainActor
     func testErreurReseau() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-MonikaDemo", "YES", "-MonikaDemoError", "YES"]
+        app.launchArguments = ["-MonikaDemo", "YES", "-demoError"]
         app.launch()
 
         let retryButton = app.buttons["retryButton"]
-        XCTAssertTrue(retryButton.waitForExistence(timeout: 15), "Bouton « Réessayer » introuvable")
+        XCTAssertTrue(retryButton.waitForExistence(timeout: 10), "Bouton Reessayer introuvable")
 
         sleep(2)
         attachScreenshot(named: "08-erreur-reseau")
@@ -99,8 +99,9 @@ final class MonikaScreenshotTests: XCTestCase {
 
     @MainActor
     private func attachScreenshot(named name: String) {
+        let cleanName = name.hasSuffix(".png") ? String(name.dropLast(4)) : name
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        attachment.name = name
+        attachment.name = cleanName
         attachment.lifetime = .keepAlways
         add(attachment)
     }
