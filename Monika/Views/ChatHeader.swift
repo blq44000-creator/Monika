@@ -2,13 +2,26 @@ import SwiftUI
 
 /// En-tête flottant en verre : menu, identité de Monika, réglages.
 struct ChatHeader: View {
-    var onMenu: () -> Void = {}
+    var onClearHistory: () -> Void = {}
     var onSettings: () -> Void = {}
 
     var body: some View {
         GlassEffectContainer(spacing: 12) {
             HStack(spacing: 12) {
-                GlassIconButton(systemName: "line.3.horizontal", label: "Conversations", action: onMenu)
+                Menu {
+                    Button(role: .destructive, action: onClearHistory) {
+                        Label("Effacer l'historique", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 44, height: 44)
+                        .contentShape(.circle)
+                }
+                .glassEffect(.regular.interactive(), in: .circle)
+                .accessibilityLabel("Menu")
+                .accessibilityIdentifier("menuButton")
 
                 Spacer(minLength: 0)
 

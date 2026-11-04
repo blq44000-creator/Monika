@@ -3,9 +3,11 @@ import SwiftUI
 /// Bulle de message en verre légèrement teinté.
 /// Utilisateur : à droite, teinte accent. Monika : à gauche, verre neutre.
 struct MessageBubble: View {
-    let message: ChatMessage
+    let message: Message
 
-    private var isUser: Bool { message.role == .user }
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var isUser: Bool { message.isFromUser }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
@@ -15,9 +17,9 @@ struct MessageBubble: View {
                 MonikaAvatar(size: 26)
             }
 
-            Text(message.text)
+            Text(message.text.keepingEmojisAttached)
                 .font(.body)
-                .foregroundStyle(isUser ? Color.white : Color.primary)
+                .foregroundStyle(textColor)
                 .multilineTextAlignment(.leading)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
@@ -34,9 +36,18 @@ struct MessageBubble: View {
     }
 
     private var glass: Glass {
-        isUser
-            ? .regular.tint(Theme.accent.opacity(0.85))
-            : .regular.tint(Color.white.opacity(0.10))
+        if isUser {
+            return .regular.tint(Theme.accent.opacity(0.85))
+        }
+        // Mode clair : verre plus blanc pour un meilleur contraste du texte.
+        return colorScheme == .dark
+            ? .regular.tint(Color.white.opacity(0.10))
+            : .regular.tint(Color.white.opacity(0.55))
+    }
+
+    private var textColor: Color {
+        if isUser { return .white }
+        return colorScheme == .dark ? .primary : Color(white: 0.06)
     }
 }
 
@@ -61,7 +72,8 @@ struct TypingIndicator: View {
     ZStack {
         AnimatedBackground()
         VStack(spacing: 10) {
-            ForEach(ChatMessage.samples) { MessageBubble(message: $0) }
+            MessageBubble(message: .welcome())
+            MessageBubble(message: Message(text: "Rappelle-moi d'acheter du pain ce soir en rentrant 🥖", role: .user))
             TypingIndicator()
         }
         .padding()

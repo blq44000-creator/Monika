@@ -68,22 +68,16 @@ jobs:
           zip -qry Monika.ipa Payload
           ls -lh Monika.ipa
 
-      # d) Simulateur iOS 26 + captures d'écran
-      - name: Compiler pour le simulateur
-        run: |
-          set -o pipefail
-          xcodebuild \
-            -project Monika.xcodeproj \
-            -scheme Monika \
-            -configuration Debug \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath build-sim \
-            CODE_SIGNING_ALLOWED=NO \
-            build | tee xcodebuild-sim.log | grep -E "error:|warning:|BUILD" || true
-          test -d build-sim/Build/Products/Debug-iphonesimulator/Monika.app
+      - name: Publier Monika.ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: Monika-ipa
+          path: Monika.ipa
+          if-no-files-found: error
 
-      - name: Lancer le simulateur et prendre des captures
+      # d) Simulateur iOS 26 + captures d'écran
+      - name: Créer et démarrer un simulateur iPhone iOS 26
+        id: sim
         run: |
           RUNTIME=$(xcrun simctl list runtimes -j | jq -r '[.runtimes[] | select(.isAvailable == true and (.name | startswith("iOS 26")))] | last | .identifier')
           if [ -z "$RUNTIME" ] || [ "$RUNTIME" = "null" ]; then echo "❌ Aucun runtime iOS 26"; exit 1; fi
@@ -93,38 +87,78 @@ jobs:
           fi
           echo "Runtime : $RUNTIME"
           echo "Appareil : $DEVICE_TYPE"
-
           UDID=$(xcrun simctl create "Monika-Sim" "$DEVICE_TYPE" "$RUNTIME")
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
-          xcrun simctl install "$UDID" build-sim/Build/Products/Debug-iphonesimulator/Monika.app
+      - name: Compiler pour le simulateur (app + tests UI)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Monika.xcodeproj \
+            -scheme Monika \
+            -configuration Debug \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build-sim \
+            build-for-testing | tee xcodebuild-sim.log | grep -E "error:|warning:|BUILD|TEST" || true
+          test -d build-sim/Build/Products/Debug-iphonesimulator/Monika.app
+
+      - name: "Captures : historique (clair + sombre)"
+        run: |
+          UDID="${{ steps.sim.outputs.udid }}"
           mkdir -p screenshots
+          xcrun simctl install "$UDID" build-sim/Build/Products/Debug-iphonesimulator/Monika.app
 
-          # Mode clair
+          # -MonikaDemo : historique de démonstration sur plusieurs jours, en mémoire uniquement
           xcrun simctl ui "$UDID" appearance light
-          xcrun simctl launch "$UDID" com.blq.monika
+          xcrun simctl launch "$UDID" com.blq.monika -MonikaDemo YES
           sleep 8
-          xcrun simctl io "$UDID" screenshot screenshots/01-chat-clair.png
+          xcrun simctl io "$UDID" screenshot screenshots/01-historique-clair.png
 
-          # Mode sombre
           xcrun simctl terminate "$UDID" com.blq.monika || true
           xcrun simctl ui "$UDID" appearance dark
-          xcrun simctl launch "$UDID" com.blq.monika
+          xcrun simctl launch "$UDID" com.blq.monika -MonikaDemo YES
           sleep 8
-          xcrun simctl io "$UDID" screenshot screenshots/02-chat-sombre.png
+          xcrun simctl io "$UDID" screenshot screenshots/02-historique-sombre.png
 
+          xcrun simctl terminate "$UDID" com.blq.monika || true
+          xcrun simctl ui "$UDID" appearance light
+
+      - name: "Captures : menu ouvert (test UI)"
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Monika.xcodeproj \
+            -scheme Monika \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build-sim \
+            -resultBundlePath ui-tests.xcresult \
+            test-without-building | tee xcodebuild-uitests.log | grep -E "error:|Test Case|TEST|passed|failed" || true
+
+      - name: Extraire les captures des tests UI
+        if: always()
+        run: |
+          mkdir -p screenshots ui-attachments
+          if [ ! -d ui-tests.xcresult ]; then echo "Pas de résultats de tests UI"; exit 0; fi
+          xcrun xcresulttool export attachments --path ui-tests.xcresult --output-path ui-attachments || true
+          ls -la ui-attachments || true
+          if [ -f ui-attachments/manifest.json ]; then
+            jq -r '.[].attachments[] | [.exportedFileName, .suggestedHumanReadableName] | @tsv' ui-attachments/manifest.json |
+            while IFS=$'\t' read -r file name; do
+              base="${name%%_*}"
+              base="${base%.png}"
+              cp "ui-attachments/$file" "screenshots/${base}.png"
+            done
+          fi
+          if ! ls screenshots/03-* >/dev/null 2>&1; then
+            find ui-attachments -name "*.png" -exec cp {} screenshots/ \; || true
+          fi
           ls -lh screenshots
 
       # e) Publication des artefacts
-      - name: Publier Monika.ipa
-        uses: actions/upload-artifact@v4
-        with:
-          name: Monika-ipa
-          path: Monika.ipa
-          if-no-files-found: error
-
       - name: Publier les captures d'écran
         if: always()
         uses: actions/upload-artifact@v4
