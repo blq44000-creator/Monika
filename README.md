@@ -1,16 +1,27 @@
 # Monika ✨
 
-App iPhone native (SwiftUI, iOS 26) pour discuter avec mon assistant IA personnel et accéder à son écran distant, au design **Liquid Glass**.
+App iPhone native (SwiftUI) pour discuter avec mon assistant IA personnel, suivre sa conso et accéder à son écran distant, au design **Liquid Glass** (compatible Xcode 15.2 / iOS 17+ en local et API natives iOS 26 sous Xcode 26).
+
+## Ouvrir et lancer dans Xcode (en local)
+
+1. Ouvre **`Monika.xcodeproj`** dans Xcode (`/Users/blq/.gemini/antigravity/scratch/monika-app/Monika.xcodeproj`).
+   - *Au tout premier lancement de Xcode, clique sur **Agree** / **Install** s'il demande d'installer les composants système requis (`CoreSimulator`), ou lance `sudo xcodebuild -runFirstLaunch` dans le Terminal.*
+2. Dans le navigateur à gauche, clique sur le projet **Monika** → cible **Monika** → onglet **Signing & Capabilities** :
+   - Coche **Automatically manage signing**.
+   - Choisis ton compte Apple (**Personal Team**) dans **Team** (et change `Bundle Identifier` ex. `com.tonnom.monika` si Xcode le demande).
+3. Branche ton iPhone (ou choisis un simulateur iPhone) et appuie sur **⌘R** (**Run**).
 
 ## Structure
 
 ```
-project.yml                    # Définition du projet (XcodeGen + Info.plist + ATS ts.net)
+Monika.xcodeproj               # Projet Xcode prêt à ouvrir en local (Xcode 15.2+)
+project.yml                    # Définition XcodeGen (gardée synchronisée pour la CI)
 monika-logo.png                # Logo source de Monika
 Monika/
   MonikaApp.swift              # Point d'entrée, conteneur SwiftData, apparence, moniteur réseau
+  Info.plist                   # Permissions iOS + exceptions ATS Tailscale
   Assets.xcassets/
-    AppIcon.appiconset/        # Icône iOS 26 (1024×1024 sans transparence)
+    AppIcon.appiconset/        # Icône 1024×1024 sans transparence
     MonikaAvatar.imageset/     # Logo de Monika détouré en rond (@1x, @2x, @3x)
   Models/
     Message.swift              # Modèle SwiftData (texte, rôle, date, pièces jointes)
@@ -22,6 +33,7 @@ Monika/
     SpeechRecognizer.swift     # Dictée vocale en direct (SFSpeechRecognizer fr-FR + AVAudioEngine)
   Utilities/
     KeychainHelper.swift       # Stockage sécurisé (jeton API, clé Conso, mot de passe VNC) dans le Keychain
+    LiquidGlassCompat.swift    # Compatibilité Liquid Glass pour iOS 17 / Xcode 15.2 (bascule auto vers iOS 26)
     NetworkMonitor.swift       # Surveillance réseau temps réel (NWPathMonitor)
     String+Emoji.swift         # Emojis jamais seuls en début de ligne
   Views/
@@ -32,24 +44,5 @@ Monika/
     MessageBubble.swift        # Bulles en verre teinté (texte, photos, documents) + erreurs
     ComposerBar.swift          # Barre de saisie flottante (+, aperçu, dictée pulsante, envoi/stop)
     SettingsView.swift         # Écran Réglages Liquid Glass (serveur, écran VNC, Conso, apparence)
-    AnimatedBackground.swift   # Dégradé maillé animé (clair / sombre)
-.github/workflows/build.yml    # CI rapide : Xcode 26 + cache DerivedData → Monika.ipa non signée
+    AnimatedBackground.swift   # Dégradé animé (MeshGradient iOS 18+ / dégradé auroral iOS 17)
 ```
-
-## Compilation
-
-Aucune compilation locale : tout passe par **GitHub Actions** (`macos-latest`, Xcode 26).
-À chaque push, l'onglet **Actions** produit :
-
-- `Monika-ipa` → `Monika.ipa` non signée (à signer/installer sur iPhone avec Sideloadly)
-- `build-logs` → journaux `xcodebuild` (publiés uniquement en cas d'échec)
-
-## Feuille de route
-
-- [x] Étape 1 — Structure, CI, écran de chat Liquid Glass
-- [x] Étape 2 — Historique SwiftData, séparateurs de date, effacement
-- [x] Étape 3 — Réglages (URL + jeton dans le Keychain)
-- [x] Étape 4 — API compatible OpenAI (streaming) + gestion des erreurs
-- [x] Étape 5 — Correctifs saisie/arrière-plan, pièces jointes multimodales, dictée vocale
-- [x] Étape 6 — Écran VNC (noVNC / Tailscale), logo officiel Monika, build CI accéléré
-- [x] Étape 7 — Écran Conso (budget, OpenRouter, Aujourd'hui / Mois par modèle, auto-refresh 10 s)

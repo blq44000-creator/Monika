@@ -203,8 +203,7 @@ private struct VNCWebViewRepresentable: UIViewRepresentable {
         webView.navigationDelegate = nil
     }
 
-    @MainActor
-    final class Coordinator: NSObject, WKNavigationDelegate {
+    final class Coordinator: NSObject, WKNavigationDelegate, @unchecked Sendable {
         var parent: VNCWebViewRepresentable
         var lastReloadToken: UUID?
         private var timeoutTask: Task<Void, Never>?
@@ -221,7 +220,7 @@ private struct VNCWebViewRepresentable: UIViewRepresentable {
 
             let password = KeychainHelper.read(account: KeychainHelper.vncPasswordAccount)
             guard let targetURL = VNCEndpoint.targetURL(rawURL: rawURL, password: password) else {
-                Task { @MainActor [weak self] in
+                DispatchQueue.main.async { [weak self] in
                     self?.parent.isLoading = false
                     self?.parent.hasFailed = true
                 }
@@ -232,7 +231,7 @@ private struct VNCWebViewRepresentable: UIViewRepresentable {
             activeNavigationID = navID
             timedOutNavigationID = nil
 
-            Task { @MainActor [weak self] in
+            DispatchQueue.main.async { [weak self] in
                 self?.parent.isLoading = true
                 self?.parent.hasFailed = false
             }

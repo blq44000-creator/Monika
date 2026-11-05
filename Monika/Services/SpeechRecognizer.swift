@@ -6,8 +6,7 @@ import Observation
 /// Service de dictée vocale en direct basé sur `SFSpeechRecognizer` (`fr-FR`) et `AVAudioEngine`.
 /// Premier appui : démarre l'écoute et transcrit en direct. Second appui : arrête l'écoute pour relecture.
 @Observable
-@MainActor
-final class SpeechRecognizer {
+final class SpeechRecognizer: @unchecked Sendable {
     private(set) var isRecording = false
     var permissionDeniedMessage: String?
     var errorMessage: String?
@@ -17,6 +16,9 @@ final class SpeechRecognizer {
     private var recognitionTask: SFSpeechRecognitionTask?
     private var activeSessionID: UUID?
 
+    init() {}
+
+    @MainActor
     func toggleRecording(
         currentText: String,
         onTranscript: @escaping @MainActor (String) -> Void
@@ -28,6 +30,7 @@ final class SpeechRecognizer {
         await startRecording(currentText: currentText, onTranscript: onTranscript)
     }
 
+    @MainActor
     func startRecording(
         currentText: String,
         onTranscript: @escaping @MainActor (String) -> Void

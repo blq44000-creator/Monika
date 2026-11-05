@@ -1,0 +1,430 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AF3F2420696FB2DE87696F4D /* MonikaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1EFB6E5804C2C6C94AA11B7 /* MonikaApp.swift */; };
+		53551E522F607EB111976485 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F1B99DEF32D797A32D52C248 /* Assets.xcassets */; };
+		A56257010AE33263665AD662 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94EC04CCFAE25C22864E6008 /* AppSettings.swift */; };
+		84418D1CB8FAA2DFBE825C9C /* Attachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F3A70B4706FF883B5EDBC31 /* Attachment.swift */; };
+		86A520105DA6650B4202641C /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = 719E9C1B03AF6F5A3CE9888D /* Message.swift */; };
+		7437118D5B5081A2C7196424 /* MonikaAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC77B8DAF50520E02641CA83 /* MonikaAPI.swift */; };
+		B4929B18BD31FFC43802D3FF /* SpeechRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9798BB82631F16170127C5BE /* SpeechRecognizer.swift */; };
+		FA4FD65E2F39623D79004205 /* UsageAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF3A840900B3FE5F4A0EDE84 /* UsageAPI.swift */; };
+		2330051AD0828BD0A883C4E7 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 156A0648F27CCEDFCD1D4EBE /* KeychainHelper.swift */; };
+		B038452727BFD34815F2A77A /* LiquidGlassCompat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20BF1CC1CA9B3DA7C04AD4EE /* LiquidGlassCompat.swift */; };
+		D434212644D05CBCC8A06237 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D014B4193723E52AB48A4D6 /* NetworkMonitor.swift */; };
+		1E80C8D9193DFCC3781A797D /* String+Emoji.swift in Sources */ = {isa = PBXBuildFile; fileRef = 318E0DB64D1798EB394516F6 /* String+Emoji.swift */; };
+		01C0B23EACA168B4B190B697 /* AnimatedBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22067BC2BBF614A49054A5C4 /* AnimatedBackground.swift */; };
+		6939F3FF317CB6ED67364E5C /* ChatHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C84E48A81469795AFAB53225 /* ChatHeader.swift */; };
+		199513728D17E7D466636BA0 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60B2EB65842239876E9516CB /* ChatView.swift */; };
+		F50591BBDAB73F5A9A20BD9A /* ComposerBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35D4B30F2247DF8BA5CEC288 /* ComposerBar.swift */; };
+		9849E9A7E661695CEA47B3FB /* MessageBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4704277526C7E2ACB4C89337 /* MessageBubble.swift */; };
+		56AE9BBF722882CA726415D0 /* MonikaScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C22792AD51AF342754BE71 /* MonikaScreenView.swift */; };
+		34BB54F29F77BEC3A7C1BD2D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CC49F50F01BC7C2E5B608E7 /* SettingsView.swift */; };
+		D8617BD534E430E317B65A5C /* UsageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E0708CCAB94A1A5E2633BA3 /* UsageView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		94784F62F364D321396961ED /* Monika.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Monika.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E1EFB6E5804C2C6C94AA11B7 /* MonikaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MonikaApp.swift"; sourceTree = "<group>"; };
+		F1B99DEF32D797A32D52C248 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Assets.xcassets"; sourceTree = "<group>"; };
+		4174F0520601CBDB98CFCD62 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info.plist"; sourceTree = "<group>"; };
+		94EC04CCFAE25C22864E6008 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppSettings.swift"; sourceTree = "<group>"; };
+		5F3A70B4706FF883B5EDBC31 /* Attachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Attachment.swift"; sourceTree = "<group>"; };
+		719E9C1B03AF6F5A3CE9888D /* Message.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Message.swift"; sourceTree = "<group>"; };
+		EC77B8DAF50520E02641CA83 /* MonikaAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MonikaAPI.swift"; sourceTree = "<group>"; };
+		9798BB82631F16170127C5BE /* SpeechRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SpeechRecognizer.swift"; sourceTree = "<group>"; };
+		AF3A840900B3FE5F4A0EDE84 /* UsageAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UsageAPI.swift"; sourceTree = "<group>"; };
+		156A0648F27CCEDFCD1D4EBE /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KeychainHelper.swift"; sourceTree = "<group>"; };
+		20BF1CC1CA9B3DA7C04AD4EE /* LiquidGlassCompat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LiquidGlassCompat.swift"; sourceTree = "<group>"; };
+		7D014B4193723E52AB48A4D6 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NetworkMonitor.swift"; sourceTree = "<group>"; };
+		318E0DB64D1798EB394516F6 /* String+Emoji.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Emoji.swift"; sourceTree = "<group>"; };
+		22067BC2BBF614A49054A5C4 /* AnimatedBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AnimatedBackground.swift"; sourceTree = "<group>"; };
+		C84E48A81469795AFAB53225 /* ChatHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ChatHeader.swift"; sourceTree = "<group>"; };
+		60B2EB65842239876E9516CB /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ChatView.swift"; sourceTree = "<group>"; };
+		35D4B30F2247DF8BA5CEC288 /* ComposerBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ComposerBar.swift"; sourceTree = "<group>"; };
+		4704277526C7E2ACB4C89337 /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageBubble.swift"; sourceTree = "<group>"; };
+		B1C22792AD51AF342754BE71 /* MonikaScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MonikaScreenView.swift"; sourceTree = "<group>"; };
+		0CC49F50F01BC7C2E5B608E7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SettingsView.swift"; sourceTree = "<group>"; };
+		1E0708CCAB94A1A5E2633BA3 /* UsageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UsageView.swift"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		3BA1E103915AACD1C11384B9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0FED45B7B7F5EF9CF301EBC4 = {
+			isa = PBXGroup;
+			children = (
+				75590BD592A907527A237F50 /* Monika */,
+				975643F4A36438BC4C3CA5D6 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		975643F4A36438BC4C3CA5D6 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				94784F62F364D321396961ED /* Monika.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		75590BD592A907527A237F50 /* Monika */ = {
+			isa = PBXGroup;
+			children = (
+				E1EFB6E5804C2C6C94AA11B7 /* MonikaApp.swift */,
+				A184613400797DC80C348485 /* Models */,
+				1D195F5EFEC8483506612C43 /* Services */,
+				F5B8FEAE71A7DF9DCAC82769 /* Utilities */,
+				EBCB9CC44F51594157D2DC59 /* Views */,
+				F1B99DEF32D797A32D52C248 /* Assets.xcassets */,
+				4174F0520601CBDB98CFCD62 /* Info.plist */,
+			);
+			path = Monika;
+			sourceTree = "<group>";
+		};
+		A184613400797DC80C348485 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				94EC04CCFAE25C22864E6008 /* AppSettings.swift */,
+				5F3A70B4706FF883B5EDBC31 /* Attachment.swift */,
+				719E9C1B03AF6F5A3CE9888D /* Message.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		1D195F5EFEC8483506612C43 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				EC77B8DAF50520E02641CA83 /* MonikaAPI.swift */,
+				9798BB82631F16170127C5BE /* SpeechRecognizer.swift */,
+				AF3A840900B3FE5F4A0EDE84 /* UsageAPI.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		F5B8FEAE71A7DF9DCAC82769 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				156A0648F27CCEDFCD1D4EBE /* KeychainHelper.swift */,
+				20BF1CC1CA9B3DA7C04AD4EE /* LiquidGlassCompat.swift */,
+				7D014B4193723E52AB48A4D6 /* NetworkMonitor.swift */,
+				318E0DB64D1798EB394516F6 /* String+Emoji.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		EBCB9CC44F51594157D2DC59 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				22067BC2BBF614A49054A5C4 /* AnimatedBackground.swift */,
+				C84E48A81469795AFAB53225 /* ChatHeader.swift */,
+				60B2EB65842239876E9516CB /* ChatView.swift */,
+				35D4B30F2247DF8BA5CEC288 /* ComposerBar.swift */,
+				4704277526C7E2ACB4C89337 /* MessageBubble.swift */,
+				B1C22792AD51AF342754BE71 /* MonikaScreenView.swift */,
+				0CC49F50F01BC7C2E5B608E7 /* SettingsView.swift */,
+				1E0708CCAB94A1A5E2633BA3 /* UsageView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		FF9D8DBEBC27CAD0DB7F2F75 /* Monika */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F11B5016963A3DF821782F53 /* Build configuration list for PBXNativeTarget "Monika" */;
+			buildPhases = (
+				A82CBD291ACC7B1EC5CEFDE8 /* Sources */,
+				3BA1E103915AACD1C11384B9 /* Frameworks */,
+				884B212149775D5EC262786C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Monika;
+			productName = Monika;
+			productReference = 94784F62F364D321396961ED /* Monika.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		DAB3E92D237CB3823FE17B6D /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1520;
+				LastUpgradeCheck = 1520;
+				TargetAttributes = {
+					FF9D8DBEBC27CAD0DB7F2F75 = {
+						CreatedOnToolsVersion = 15.2;
+					};
+				};
+			};
+			buildConfigurationList = 92E4AD63B1C121D614A3A3BF /* Build configuration list for PBXProject "Monika" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = fr;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				fr,
+				Base,
+			);
+			mainGroup = 0FED45B7B7F5EF9CF301EBC4;
+			productRefGroup = 975643F4A36438BC4C3CA5D6 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FF9D8DBEBC27CAD0DB7F2F75 /* Monika */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		884B212149775D5EC262786C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				53551E522F607EB111976485 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A82CBD291ACC7B1EC5CEFDE8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AF3F2420696FB2DE87696F4D /* MonikaApp.swift in Sources */,
+				A56257010AE33263665AD662 /* AppSettings.swift in Sources */,
+				84418D1CB8FAA2DFBE825C9C /* Attachment.swift in Sources */,
+				86A520105DA6650B4202641C /* Message.swift in Sources */,
+				7437118D5B5081A2C7196424 /* MonikaAPI.swift in Sources */,
+				B4929B18BD31FFC43802D3FF /* SpeechRecognizer.swift in Sources */,
+				FA4FD65E2F39623D79004205 /* UsageAPI.swift in Sources */,
+				2330051AD0828BD0A883C4E7 /* KeychainHelper.swift in Sources */,
+				B038452727BFD34815F2A77A /* LiquidGlassCompat.swift in Sources */,
+				D434212644D05CBCC8A06237 /* NetworkMonitor.swift in Sources */,
+				1E80C8D9193DFCC3781A797D /* String+Emoji.swift in Sources */,
+				01C0B23EACA168B4B190B697 /* AnimatedBackground.swift in Sources */,
+				6939F3FF317CB6ED67364E5C /* ChatHeader.swift in Sources */,
+				199513728D17E7D466636BA0 /* ChatView.swift in Sources */,
+				F50591BBDAB73F5A9A20BD9A /* ComposerBar.swift in Sources */,
+				9849E9A7E661695CEA47B3FB /* MessageBubble.swift in Sources */,
+				56AE9BBF722882CA726415D0 /* MonikaScreenView.swift in Sources */,
+				34BB54F29F77BEC3A7C1BD2D /* SettingsView.swift in Sources */,
+				D8617BD534E430E317B65A5C /* UsageView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		B7FBDCF923D36C0BFD8B21C3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		74807EFC1DC23B35A7CDC071 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		C927AC5F3442753EC3F0B8E4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 7;
+				DEVELOPMENT_LANGUAGE = fr;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Monika/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.7.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.blq.monika;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A4083A0C75445AB781F9C885 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 7;
+				DEVELOPMENT_LANGUAGE = fr;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Monika/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.7.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.blq.monika;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		92E4AD63B1C121D614A3A3BF /* Build configuration list for PBXProject "Monika" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B7FBDCF923D36C0BFD8B21C3 /* Debug */,
+				74807EFC1DC23B35A7CDC071 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F11B5016963A3DF821782F53 /* Build configuration list for PBXNativeTarget "Monika" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C927AC5F3442753EC3F0B8E4 /* Debug */,
+				A4083A0C75445AB781F9C885 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = DAB3E92D237CB3823FE17B6D /* Project object */;
+}

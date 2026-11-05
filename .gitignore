@@ -4,11 +4,9 @@
 # Logs
 *.log
 
-# Xcode (le projet est généré par XcodeGen)
-*.xcodeproj
-*.xcworkspace
-Monika/Info.plist
+# Xcode (données utilisateur et dossiers de compilation)
 xcuserdata/
+*.xcuserdatad/
 DerivedData/
 build/
 build-sim/
@@ -18,10 +16,8 @@ Payload/
 *.ipa
 screenshots/
 
-# Node
+# Node / Python
 node_modules/
-
-# Python
 __pycache__/
 *.pyc
 .venv/
